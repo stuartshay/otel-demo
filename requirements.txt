@@ -1,0 +1,15 @@
+# Flask web framework
+flask==3.0.3
+
+# OpenTelemetry core
+opentelemetry-api==1.27.0
+opentelemetry-sdk==1.27.0
+
+# OTLP exporter (gRPC)
+opentelemetry-exporter-otlp-proto-grpc==1.27.0
+
+# Flask auto-instrumentation
+opentelemetry-instrumentation-flask==0.48b0
+
+# Production WSGI server
+gunicorn==23.0.0
