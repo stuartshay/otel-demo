@@ -1,6 +1,9 @@
 # Flask web framework
 flask==3.0.3
 
+# Swagger/OpenAPI documentation
+flasgger==0.9.7.1
+
 # OpenTelemetry core
 opentelemetry-api==1.27.0
 opentelemetry-sdk==1.27.0

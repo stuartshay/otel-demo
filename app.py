@@ -6,6 +6,7 @@ This app demonstrates:
 - Custom spans and attributes
 - Trace context propagation
 - Logging with trace correlation
+- Swagger/OpenAPI documentation
 """
 
 import logging
@@ -13,6 +14,7 @@ import os
 import random
 import time
 
+from flasgger import Swagger
 from flask import Flask, jsonify
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -64,6 +66,48 @@ tracer = configure_opentelemetry()
 app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)
 
+# Swagger/OpenAPI configuration
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,  # noqa: ARG005
+            "model_filter": lambda tag: True,  # noqa: ARG005
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/apidocs/",
+}
+
+swagger_template = {
+    "info": {
+        "title": "OTel Demo API",
+        "description": "OpenTelemetry Demo App - Flask application with distributed tracing",
+        "version": os.getenv("APP_VERSION", "1.0.0"),
+        "contact": {
+            "name": "Stuart Shay",
+            "url": "https://github.com/stuartshay/otel-demo",
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT",
+        },
+    },
+    "host": "",  # Will be set dynamically
+    "basePath": "/",
+    "schemes": ["http", "https"],
+    "tags": [
+        {"name": "Health", "description": "Health and readiness endpoints"},
+        {"name": "Demo", "description": "OpenTelemetry demonstration endpoints"},
+        {"name": "Observability", "description": "Observability configuration"},
+    ],
+}
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
 
 class OTelLogFilter(logging.Filter):
     """Add trace context to log records."""
@@ -87,19 +131,76 @@ for handler in logging.root.handlers:
 
 @app.route("/health")
 def health():
-    """Health check endpoint (no tracing)."""
+    """Health check endpoint.
+    ---
+    tags:
+      - Health
+    summary: Health check
+    description: Returns the health status of the application. Used by Kubernetes liveness probes.
+    responses:
+      200:
+        description: Application is healthy
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: healthy
+    """
     return jsonify({"status": "healthy"})
 
 
 @app.route("/ready")
 def ready():
-    """Readiness check endpoint."""
+    """Readiness check endpoint.
+    ---
+    tags:
+      - Health
+    summary: Readiness check
+    description: Returns the readiness status of the application. Used by Kubernetes readiness probes.
+    responses:
+      200:
+        description: Application is ready to receive traffic
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: ready
+    """
     return jsonify({"status": "ready"})
 
 
 @app.route("/")
 def index():
-    """Main endpoint - returns service info with trace ID."""
+    """Service info endpoint.
+    ---
+    tags:
+      - Demo
+    summary: Service information
+    description: Returns service information including version and a trace ID for verification in New Relic.
+    responses:
+      200:
+        description: Service information with trace ID
+        schema:
+          type: object
+          properties:
+            service:
+              type: string
+              example: otel-demo
+            version:
+              type: string
+              example: "1.0.0"
+            message:
+              type: string
+              example: "OpenTelemetry Demo App - Traces flowing to New Relic!"
+            trace_id:
+              type: string
+              example: "0af7651916cd43dd8448eb211c80319c"  # pragma: allowlist secret
+            new_relic_url:
+              type: string
+              example: "https://one.newrelic.com/distributed-tracing?query=trace.id%3D..."
+    """
     with tracer.start_as_current_span("index-handler") as span:
         span.set_attribute("http.custom_attribute", "index_page")
         logger.info("Handling index request")
@@ -119,7 +220,36 @@ def index():
 
 @app.route("/chain")
 def chain():
-    """Demonstrates nested spans with simulated work."""
+    """Nested spans demonstration.
+    ---
+    tags:
+      - Demo
+    summary: Chain operation with nested spans
+    description: |
+      Demonstrates nested spans with simulated work across three steps:
+      1. Database query (PostgreSQL)
+      2. Cache lookup (Redis)
+      3. External API call
+
+      Each step creates a child span with relevant attributes.
+    responses:
+      200:
+        description: Chain operation completed successfully
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: "chain complete"
+            steps:
+              type: array
+              items:
+                type: string
+              example: ["db_query", "cache_check", "api_call"]
+            trace_id:
+              type: string
+              example: "0af7651916cd43dd8448eb211c80319c"  # pragma: allowlist secret
+    """
     with tracer.start_as_current_span("chain-handler") as parent:
         parent.set_attribute("chain.steps", 3)
         logger.info("Starting chain operation")
@@ -158,7 +288,30 @@ def chain():
 
 @app.route("/error")
 def error_endpoint():
-    """Demonstrates error recording in traces."""
+    """Error recording demonstration.
+    ---
+    tags:
+      - Demo
+    summary: Simulated error endpoint
+    description: |
+      Demonstrates how errors are recorded in OpenTelemetry traces.
+      This endpoint intentionally raises an exception to show error handling.
+    responses:
+      500:
+        description: Simulated error response
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: error
+            message:
+              type: string
+              example: "Simulated error for tracing demo"
+            trace_id:
+              type: string
+              example: "0af7651916cd43dd8448eb211c80319c"  # pragma: allowlist secret
+    """
     with tracer.start_as_current_span("error-handler") as span:
         try:
             span.set_attribute("error.simulated", True)
@@ -179,7 +332,31 @@ def error_endpoint():
 
 @app.route("/slow")
 def slow_endpoint():
-    """Demonstrates a slow operation for performance analysis."""
+    """Slow operation demonstration.
+    ---
+    tags:
+      - Demo
+    summary: Slow operation for performance analysis
+    description: |
+      Demonstrates a slow operation with a random delay between 0.5 and 2.0 seconds.
+      Useful for testing latency monitoring and performance analysis in traces.
+    responses:
+      200:
+        description: Slow operation completed
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: complete
+            delay_seconds:
+              type: number
+              format: float
+              example: 1.23
+            trace_id:
+              type: string
+              example: "0af7651916cd43dd8448eb211c80319c"  # pragma: allowlist secret
+    """
     with tracer.start_as_current_span("slow-handler") as span:
         delay = random.uniform(0.5, 2.0)
         span.set_attribute("delay.seconds", delay)
@@ -199,7 +376,38 @@ def slow_endpoint():
 
 @app.route("/metrics")
 def metrics_info():
-    """Returns info about the app's observability configuration."""
+    """Observability configuration info.
+    ---
+    tags:
+      - Observability
+    summary: Get observability configuration
+    description: Returns the current OpenTelemetry configuration and available endpoints.
+    responses:
+      200:
+        description: Observability configuration
+        schema:
+          type: object
+          properties:
+            otel_endpoint:
+              type: string
+              example: "localhost:4317"
+            service_name:
+              type: string
+              example: "otel-demo"
+            service_namespace:
+              type: string
+              example: "otel-demo"
+            environment:
+              type: string
+              example: "homelab"
+            version:
+              type: string
+              example: "1.0.0"
+            endpoints:
+              type: object
+              additionalProperties:
+                type: string
+    """
     return jsonify(
         {
             "otel_endpoint": os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "not configured"),
@@ -215,6 +423,8 @@ def metrics_info():
                 "/error": "Error recording demo",
                 "/slow": "Slow operation demo (0.5-2s)",
                 "/metrics": "This endpoint",
+                "/apidocs": "Swagger UI documentation",
+                "/apispec.json": "OpenAPI specification",
             },
         }
     )

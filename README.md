@@ -19,6 +19,7 @@ This demo app is designed to test and validate OpenTelemetry Collector deploymen
 - **Error recording** - Shows how exceptions are captured in traces
 - **Log correlation** - Logs include trace and span IDs
 - **Multiple endpoints** - Various demos for different tracing scenarios
+- **Swagger/OpenAPI** - Interactive API documentation at `/apidocs`
 
 ## Endpoints
 
@@ -31,6 +32,8 @@ This demo app is designed to test and validate OpenTelemetry Collector deploymen
 | `/error` | Error recording demo |
 | `/slow` | Slow operation demo (0.5-2s delay) |
 | `/metrics` | Observability configuration info |
+| `/apidocs` | Swagger UI documentation |
+| `/apispec.json` | OpenAPI specification |
 
 ## Environment Variables
 
