@@ -49,8 +49,8 @@ jobs:
             # For semver tags (v1.0.0 -> 1.0.0, 1.0)
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            # Git SHA for all builds
-            type=sha,prefix=
+            # Git SHA for all builds (e.g., sha-abc1234)
+            type=sha,prefix=sha-
 
       - name: Build and push
         uses: docker/build-push-action@v6
