@@ -53,7 +53,7 @@ Thumbs.db
 *.sublime-workspace
 
 # Secrets
-.secrets.baseline
+# Note: .secrets.baseline is committed (required by detect-secrets pre-commit hook)
 *.pem
 *.key
 
