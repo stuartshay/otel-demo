@@ -10,33 +10,35 @@ This app demonstrates:
 
 import logging
 import os
-import time
 import random
+import time
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
-from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_NAMESPACE
+from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_NAMESPACE, Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s] - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s] - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 
 def configure_opentelemetry():
     """Configure OpenTelemetry with OTLP exporter."""
-    resource = Resource.create({
-        SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "otel-demo"),
-        SERVICE_NAMESPACE: os.getenv("OTEL_SERVICE_NAMESPACE", "otel-demo"),
-        "deployment.environment": os.getenv("OTEL_ENVIRONMENT", "homelab"),
-        "service.version": os.getenv("APP_VERSION", "1.0.0"),
-    })
+    resource = Resource.create(
+        {
+            SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "otel-demo"),
+            SERVICE_NAMESPACE: os.getenv("OTEL_SERVICE_NAMESPACE", "otel-demo"),
+            "deployment.environment": os.getenv("OTEL_ENVIRONMENT", "homelab"),
+            "service.version": os.getenv("APP_VERSION", "1.0.0"),
+        }
+    )
 
     provider = TracerProvider(resource=resource)
 
@@ -45,7 +47,7 @@ def configure_opentelemetry():
 
     exporter = OTLPSpanExporter(
         endpoint=otlp_endpoint,
-        insecure=True  # Using cluster-internal communication
+        insecure=True,  # Using cluster-internal communication
     )
 
     processor = BatchSpanProcessor(exporter)
@@ -70,11 +72,11 @@ class OTelLogFilter(logging.Filter):
         span = trace.get_current_span()
         if span.is_recording():
             ctx = span.get_span_context()
-            record.otelTraceID = format(ctx.trace_id, '032x')
-            record.otelSpanID = format(ctx.span_id, '016x')
+            record.otelTraceID = format(ctx.trace_id, "032x")
+            record.otelSpanID = format(ctx.span_id, "016x")
         else:
-            record.otelTraceID = '0' * 32
-            record.otelSpanID = '0' * 16
+            record.otelTraceID = "0" * 32
+            record.otelSpanID = "0" * 16
         return True
 
 
@@ -102,15 +104,17 @@ def index():
         span.set_attribute("http.custom_attribute", "index_page")
         logger.info("Handling index request")
 
-        trace_id = format(span.get_span_context().trace_id, '032x')
+        trace_id = format(span.get_span_context().trace_id, "032x")
 
-        return jsonify({
-            "service": "otel-demo",
-            "version": os.getenv("APP_VERSION", "1.0.0"),
-            "message": "OpenTelemetry Demo App - Traces flowing to New Relic!",
-            "trace_id": trace_id,
-            "new_relic_url": f"https://one.newrelic.com/distributed-tracing?query=trace.id%3D{trace_id}"
-        })
+        return jsonify(
+            {
+                "service": "otel-demo",
+                "version": os.getenv("APP_VERSION", "1.0.0"),
+                "message": "OpenTelemetry Demo App - Traces flowing to New Relic!",
+                "trace_id": trace_id,
+                "new_relic_url": f"https://one.newrelic.com/distributed-tracing?query=trace.id%3D{trace_id}",
+            }
+        )
 
 
 @app.route("/chain")
@@ -143,11 +147,13 @@ def chain():
             logger.info("Step 3: External API call completed")
             results.append("api_call")
 
-        return jsonify({
-            "status": "chain complete",
-            "steps": results,
-            "trace_id": format(parent.get_span_context().trace_id, '032x')
-        })
+        return jsonify(
+            {
+                "status": "chain complete",
+                "steps": results,
+                "trace_id": format(parent.get_span_context().trace_id, "032x"),
+            }
+        )
 
 
 @app.route("/error")
@@ -162,11 +168,13 @@ def error_endpoint():
             span.record_exception(e)
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
             logger.error(f"Caught simulated error: {e}")
-            return jsonify({
-                "status": "error",
-                "message": str(e),
-                "trace_id": format(span.get_span_context().trace_id, '032x')
-            }), 500
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": str(e),
+                    "trace_id": format(span.get_span_context().trace_id, "032x"),
+                }
+            ), 500
 
 
 @app.route("/slow")
@@ -180,32 +188,36 @@ def slow_endpoint():
         time.sleep(delay)
 
         logger.info("Slow operation completed")
-        return jsonify({
-            "status": "complete",
-            "delay_seconds": round(delay, 2),
-            "trace_id": format(span.get_span_context().trace_id, '032x')
-        })
+        return jsonify(
+            {
+                "status": "complete",
+                "delay_seconds": round(delay, 2),
+                "trace_id": format(span.get_span_context().trace_id, "032x"),
+            }
+        )
 
 
 @app.route("/metrics")
 def metrics_info():
     """Returns info about the app's observability configuration."""
-    return jsonify({
-        "otel_endpoint": os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "not configured"),
-        "service_name": os.getenv("OTEL_SERVICE_NAME", "otel-demo"),
-        "service_namespace": os.getenv("OTEL_SERVICE_NAMESPACE", "otel-demo"),
-        "environment": os.getenv("OTEL_ENVIRONMENT", "homelab"),
-        "version": os.getenv("APP_VERSION", "1.0.0"),
-        "endpoints": {
-            "/": "Service info with trace ID",
-            "/health": "Health check (no tracing)",
-            "/ready": "Readiness check",
-            "/chain": "Nested spans demo (3 steps)",
-            "/error": "Error recording demo",
-            "/slow": "Slow operation demo (0.5-2s)",
-            "/metrics": "This endpoint"
+    return jsonify(
+        {
+            "otel_endpoint": os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "not configured"),
+            "service_name": os.getenv("OTEL_SERVICE_NAME", "otel-demo"),
+            "service_namespace": os.getenv("OTEL_SERVICE_NAMESPACE", "otel-demo"),
+            "environment": os.getenv("OTEL_ENVIRONMENT", "homelab"),
+            "version": os.getenv("APP_VERSION", "1.0.0"),
+            "endpoints": {
+                "/": "Service info with trace ID",
+                "/health": "Health check (no tracing)",
+                "/ready": "Readiness check",
+                "/chain": "Nested spans demo (3 steps)",
+                "/error": "Error recording demo",
+                "/slow": "Slow operation demo (0.5-2s)",
+                "/metrics": "This endpoint",
+            },
         }
-    })
+    )
 
 
 if __name__ == "__main__":

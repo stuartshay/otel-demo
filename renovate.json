@@ -1,0 +1,52 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "docker:enableMajor",
+    ":disableRateLimiting"
+  ],
+  "labels": ["dependencies", "renovate"],
+  "timezone": "America/New_York",
+  "schedule": ["before 6am on monday"],
+  "pip_requirements": {
+    "fileMatch": ["requirements\\.txt$"]
+  },
+  "packageRules": [
+    {
+      "description": "Auto-merge patch updates for Python packages",
+      "matchManagers": ["pip_requirements"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Group OpenTelemetry packages",
+      "matchPackagePatterns": ["^opentelemetry"],
+      "groupName": "opentelemetry",
+      "groupSlug": "otel"
+    },
+    {
+      "description": "Group pre-commit hooks",
+      "matchManagers": ["pre-commit"],
+      "groupName": "pre-commit hooks",
+      "groupSlug": "pre-commit"
+    },
+    {
+      "description": "Docker base image updates",
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    }
+  ],
+  "regexManagers": [
+    {
+      "description": "Update Python version in Dockerfile",
+      "fileMatch": ["Dockerfile$"],
+      "matchStrings": [
+        "FROM python:(?<currentValue>[\\d.]+)-slim"
+      ],
+      "depNameTemplate": "python",
+      "datasourceTemplate": "docker"
+    }
+  ]
+}

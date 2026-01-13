@@ -1,0 +1,12 @@
+---
+blank_issues_enabled: false
+contact_links:
+  - name: OpenTelemetry Documentation
+    url: https://opentelemetry.io/docs/languages/python/
+    about: Official OpenTelemetry Python documentation.
+  - name: Project README
+    url: https://github.com/stuartshay/otel-demo/blob/main/README.md
+    about: Quick start and endpoint reference.
+  - name: Operations Guide
+    url: https://github.com/stuartshay/otel-demo/blob/main/docs/operations.md
+    about: Deployment and testing instructions.

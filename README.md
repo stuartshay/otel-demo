@@ -1,5 +1,8 @@
 # OTel Demo
 
+[![This image on DockerHub](https://img.shields.io/docker/pulls/stuartshay/otel-demo.svg)](https://hub.docker.com/r/stuartshay/otel-demo/)
+
+
 OpenTelemetry Demo App - A Python Flask application instrumented with OpenTelemetry for distributed tracing.
 
 ## Overview

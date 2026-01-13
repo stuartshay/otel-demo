@@ -1,0 +1,13 @@
+{
+  "include": ["."],
+  "exclude": ["venv", ".venv", "__pycache__", ".git", ".ruff_cache"],
+  "venvPath": ".",
+  "venv": "venv",
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning",
+  "reportMissingTypeStubs": false,
+  "reportUnusedImport": "warning",
+  "reportUnusedVariable": "warning",
+  "reportDuplicateImport": "warning"
+}

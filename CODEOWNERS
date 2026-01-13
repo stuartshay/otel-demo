@@ -1,0 +1,13 @@
+# Default owner for everything
+* @stuartshay
+
+# Application code requires review
+/app.py @stuartshay
+
+# Docker and CI changes require review
+/Dockerfile @stuartshay
+/.github/workflows/ @stuartshay
+
+# Documentation
+/docs/ @stuartshay
+/README.md @stuartshay

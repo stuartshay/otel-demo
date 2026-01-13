@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -11,17 +12,54 @@ dist/
 build/
 .eggs/
 *.egg
+
+# Testing
 .pytest_cache/
 .coverage
 htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Type checking
 .mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+
+# Linting
 .ruff_cache/
+
+# Environment
 .env
 .env.local
+.env.*.local
+
+# Logs
 *.log
+logs/
+
+# OS
 .DS_Store
 Thumbs.db
+
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*.sublime-project
+*.sublime-workspace
+
+# Secrets
+.secrets.baseline
+*.pem
+*.key
+
+# Docker
+docker-compose.override.yml
+
+# Project specific
+reports/
+tmp/
