@@ -121,6 +121,39 @@ echo -e "${BLUE}Step 8: Verifying setup...${NC}"
 python -c "import flask; import opentelemetry; print('✓ Core imports successful')"
 echo -e "${GREEN}✓ All imports verified${NC}"
 
+# Create VS Code settings
+echo ""
+echo -e "${BLUE}Step 9: Configuring VS Code settings...${NC}"
+mkdir -p .vscode
+cat > .vscode/settings.json << EOF
+{
+    "python.defaultInterpreterPath": "\${workspaceFolder}/venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.autoImportCompletions": true,
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": [
+        "."
+    ],
+    "editor.formatOnSave": true,
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
+        }
+    },
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        ".mypy_cache": true,
+        ".ruff_cache": true,
+        ".pytest_cache": true
+    }
+}
+EOF
+echo -e "${GREEN}✓ VS Code settings configured${NC}"
+
 # Deactivate venv
 deactivate
 
