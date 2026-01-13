@@ -1,8 +1,17 @@
 FROM python:3.12-slim
 
+# Build arguments
+ARG APP_VERSION=dev
+ARG BUILD_DATE=unknown
+ARG BUILD_NUMBER=0
+
+# OCI Image labels
 LABEL org.opencontainers.image.source="https://github.com/stuartshay/otel-demo"
 LABEL org.opencontainers.image.description="OpenTelemetry Demo App with Flask"
 LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.version="${APP_VERSION}"
+LABEL org.opencontainers.image.created="${BUILD_DATE}"
+LABEL com.github.actions.build_number="${BUILD_NUMBER}"
 
 # Set working directory
 WORKDIR /app
@@ -13,6 +22,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY app.py .
+
+# Set version as environment variable for runtime access
+ENV APP_VERSION=${APP_VERSION}
+ENV BUILD_DATE=${BUILD_DATE}
+ENV BUILD_NUMBER=${BUILD_NUMBER}
 
 # Create non-root user for security
 RUN useradd -r -u 1000 appuser

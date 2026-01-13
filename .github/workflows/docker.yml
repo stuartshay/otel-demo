@@ -33,17 +33,23 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Get build date
+        id: date
+        run: echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            # For develop branch: dev, develop tags
+            # For develop branch: dev, develop, dev-{build}
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' }}
             type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
-            # For main branch: latest tag
+            type=raw,value=dev-${{ github.run_number }},enable=${{ github.ref == 'refs/heads/develop' }}
+            # For main branch: latest, 1.0.{build}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=1.0.${{ github.run_number }},enable=${{ github.ref == 'refs/heads/main' }}
             # For PRs
             type=ref,event=pr
             # For semver tags (v1.0.0 -> 1.0.0, 1.0)
@@ -51,6 +57,13 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             # Git SHA for all builds (e.g., sha-abc1234)
             type=sha,prefix=sha-
+          labels: |
+            org.opencontainers.image.title=otel-demo
+            org.opencontainers.image.description=OpenTelemetry Demo App - Python Flask with OTel instrumentation
+            org.opencontainers.image.vendor=stuartshay
+            org.opencontainers.image.version=${{ github.ref == 'refs/heads/main' && format('1.0.{0}', github.run_number) || github.ref == 'refs/heads/develop' && format('dev-{0}', github.run_number) || github.ref_name }}
+            com.github.actions.run_number=${{ github.run_number }}
+            com.github.actions.run_id=${{ github.run_id }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -63,7 +76,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            APP_VERSION=${{ github.ref_name }}
+            APP_VERSION=${{ github.ref == 'refs/heads/main' && format('1.0.{0}', github.run_number) || github.ref == 'refs/heads/develop' && format('dev-{0}', github.run_number) || github.ref_name }}
+            BUILD_DATE=${{ steps.date.outputs.date }}
+            BUILD_NUMBER=${{ github.run_number }}
 
       - name: Update Docker Hub description
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
