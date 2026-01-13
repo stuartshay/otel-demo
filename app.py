@@ -15,7 +15,7 @@ import random
 import time
 
 from flasgger import Swagger
-from flask import Flask, jsonify
+from flask import Flask, jsonify, redirect
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
@@ -173,6 +173,21 @@ def ready():
 
 @app.route("/")
 def index():
+    """Redirect to Swagger UI.
+    ---
+    tags:
+      - Health
+    summary: Redirect to API documentation
+    description: Redirects to the Swagger UI documentation page.
+    responses:
+      302:
+        description: Redirect to /apidocs/
+    """
+    return redirect("/apidocs/")
+
+
+@app.route("/info")
+def info():
     """Service info endpoint.
     ---
     tags:
@@ -416,7 +431,8 @@ def metrics_info():
             "environment": os.getenv("OTEL_ENVIRONMENT", "homelab"),
             "version": os.getenv("APP_VERSION", "1.0.0"),
             "endpoints": {
-                "/": "Service info with trace ID",
+                "/": "Redirect to Swagger UI",
+                "/info": "Service info with trace ID",
                 "/health": "Health check (no tracing)",
                 "/ready": "Readiness check",
                 "/chain": "Nested spans demo (3 steps)",

@@ -25,7 +25,8 @@ This demo app is designed to test and validate OpenTelemetry Collector deploymen
 
 | Endpoint | Description |
 |----------|-------------|
-| `/` | Service info with trace ID and New Relic link |
+| `/` | Redirect to Swagger UI |
+| `/info` | Service info with trace ID and New Relic link |
 | `/health` | Health check (no tracing) |
 | `/ready` | Readiness check |
 | `/chain` | Nested spans demo (3 simulated steps) |
