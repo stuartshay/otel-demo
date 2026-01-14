@@ -193,7 +193,7 @@ def info():
     tags:
       - Demo
     summary: Service information
-    description: Returns service information including version and a trace ID for verification in New Relic.
+    description: Returns service information including version, build info, and a trace ID for verification in New Relic.
     responses:
       200:
         description: Service information with trace ID
@@ -205,7 +205,13 @@ def info():
               example: otel-demo
             version:
               type: string
-              example: "1.0.0"
+              example: "1.0.42"
+            build_number:
+              type: string
+              example: "42"
+            build_date:
+              type: string
+              example: "2026-01-13T18:00:00Z"
             message:
               type: string
               example: "OpenTelemetry Demo App - Traces flowing to New Relic!"
@@ -218,6 +224,8 @@ def info():
     """
     with tracer.start_as_current_span("index-handler") as span:
         span.set_attribute("http.custom_attribute", "index_page")
+        span.set_attribute("app.version", os.getenv("APP_VERSION", "dev"))
+        span.set_attribute("app.build_number", os.getenv("BUILD_NUMBER", "0"))
         logger.info("Handling index request")
 
         trace_id = format(span.get_span_context().trace_id, "032x")
@@ -225,7 +233,9 @@ def info():
         return jsonify(
             {
                 "service": "otel-demo",
-                "version": os.getenv("APP_VERSION", "1.0.0"),
+                "version": os.getenv("APP_VERSION", "dev"),
+                "build_number": os.getenv("BUILD_NUMBER", "0"),
+                "build_date": os.getenv("BUILD_DATE", "unknown"),
                 "message": "OpenTelemetry Demo App - Traces flowing to New Relic!",
                 "trace_id": trace_id,
                 "new_relic_url": f"https://one.newrelic.com/distributed-tracing?query=trace.id%3D{trace_id}",

@@ -24,7 +24,7 @@ This demo app is designed to test and validate OpenTelemetry Collector deploymen
 ## Endpoints
 
 | Endpoint | Description |
-|----------|-------------|
+| -------- | ----------- |
 | `/` | Redirect to Swagger UI |
 | `/info` | Service info with trace ID and New Relic link |
 | `/health` | Health check (no tracing) |
@@ -39,7 +39,7 @@ This demo app is designed to test and validate OpenTelemetry Collector deploymen
 ## Environment Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| -------- | ------- | ----------- |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | OTel Collector gRPC endpoint |
 | `OTEL_SERVICE_NAME` | `otel-demo` | Service name in traces |
 | `OTEL_SERVICE_NAMESPACE` | `otel-demo` | Service namespace |
@@ -75,17 +75,19 @@ docker run -p 8080:8080 \
 ## Kubernetes Deployment
 
 See the k8s-gitops repo for the full deployment:
+
 - [apps/base/otel-demo/](https://github.com/stuartshay/k8s-gitops/tree/master/apps/base/otel-demo)
 
 ## New Relic Integration
 
 Traces are exported via OTLP to the OpenTelemetry Collector, which forwards them to New Relic. View traces at:
 
-```
+```text
 https://one.newrelic.com/distributed-tracing
 ```
 
 Filter by:
+
 - `service.name = otel-demo`
 - `service.namespace = otel-demo`
 
