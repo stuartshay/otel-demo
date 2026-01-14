@@ -97,9 +97,9 @@ swagger_template = {
             "url": "https://opensource.org/licenses/MIT",
         },
     },
-    "host": "",  # Will be set dynamically
+    "host": os.getenv("SWAGGER_HOST", ""),  # Empty = use request host
     "basePath": "/",
-    "schemes": ["http", "https"],
+    "schemes": os.getenv("SWAGGER_SCHEMES", "http").split(","),  # Default http for local
     "tags": [
         {"name": "Health", "description": "Health and readiness endpoints"},
         {"name": "Demo", "description": "OpenTelemetry demonstration endpoints"},
