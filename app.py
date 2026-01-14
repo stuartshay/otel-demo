@@ -13,9 +13,10 @@ import logging
 import os
 import random
 import time
+from pathlib import Path
 
 from flasgger import Swagger
-from flask import Flask, jsonify, redirect
+from flask import Flask, jsonify, redirect, request
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
@@ -102,6 +103,7 @@ swagger_template = {
     "tags": [
         {"name": "Health", "description": "Health and readiness endpoints"},
         {"name": "Demo", "description": "OpenTelemetry demonstration endpoints"},
+        {"name": "Files", "description": "NFS storage file operations"},
         {"name": "Observability", "description": "Observability configuration"},
     ],
 }
@@ -440,11 +442,416 @@ def metrics_info():
                 "/error": "Error recording demo",
                 "/slow": "Slow operation demo (0.5-2s)",
                 "/metrics": "This endpoint",
+                "/files": "List files in NFS storage",
+                "/files/<path>": "Read/write/delete files (GET/POST/DELETE)",
                 "/apidocs": "Swagger UI documentation",
                 "/apispec.json": "OpenAPI specification",
             },
         }
     )
+
+
+# =============================================================================
+# File Storage Endpoints (NFS)
+# =============================================================================
+
+DATA_DIR = Path(os.getenv("DATA_DIR", "/data"))
+
+
+def get_safe_path(filepath: str) -> Path | None:
+    """Validate and return safe path within DATA_DIR, or None if invalid."""
+    try:
+        # Normalize and resolve the path
+        target = (DATA_DIR / filepath).resolve()
+        # Ensure it's within DATA_DIR (prevent path traversal)
+        if DATA_DIR.resolve() in target.parents or target == DATA_DIR.resolve():
+            return target
+        return None
+    except (ValueError, OSError):
+        return None
+
+
+@app.route("/files", methods=["GET"])
+@app.route("/files/", methods=["GET"])
+@app.route("/files/<path:filepath>", methods=["GET"])
+def get_files(filepath: str = ""):
+    """List files or read file content.
+    ---
+    tags:
+      - Files
+    summary: List directory or read file
+    description: |
+      If path is a directory, returns a list of files and subdirectories.
+      If path is a file, returns the file content.
+      Supports nested paths like `/files/subdir/file.txt`.
+    parameters:
+      - name: filepath
+        in: path
+        type: string
+        required: false
+        description: Path to file or directory (relative to storage root)
+        default: ""
+    responses:
+      200:
+        description: Directory listing or file content
+        schema:
+          type: object
+          properties:
+            path:
+              type: string
+              example: "subdir"
+            type:
+              type: string
+              enum: [directory, file]
+              example: directory
+            items:
+              type: array
+              description: Only present for directories
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  type:
+                    type: string
+                    enum: [file, directory]
+                  size:
+                    type: integer
+            content:
+              type: string
+              description: Only present for files
+            size:
+              type: integer
+              description: File size in bytes (only for files)
+            trace_id:
+              type: string
+      404:
+        description: Path not found
+      400:
+        description: Invalid path (path traversal attempt)
+    """
+    with tracer.start_as_current_span("files-get") as span:
+        span.set_attribute("file.path", filepath or "/")
+
+        # Handle root directory
+        if not filepath:
+            target = DATA_DIR
+        else:
+            safe_path = get_safe_path(filepath)
+            if safe_path is None:
+                span.set_status(trace.Status(trace.StatusCode.ERROR, "Invalid path"))
+                return jsonify({"error": "Invalid path", "path": filepath}), 400
+            target = safe_path
+
+        if not target.exists():
+            span.set_status(trace.Status(trace.StatusCode.ERROR, "Not found"))
+            return jsonify({"error": "Path not found", "path": filepath}), 404
+
+        trace_id = format(span.get_span_context().trace_id, "032x")
+
+        if target.is_dir():
+            span.set_attribute("file.type", "directory")
+            items: list[dict[str, str | int]] = []
+            for item in sorted(target.iterdir()):
+                item_info: dict[str, str | int] = {
+                    "name": item.name,
+                    "type": "directory" if item.is_dir() else "file",
+                }
+                if item.is_file():
+                    item_info["size"] = item.stat().st_size
+                items.append(item_info)
+
+            span.set_attribute("file.item_count", len(items))
+            logger.info(f"Listed directory: {filepath or '/'} ({len(items)} items)")
+
+            return jsonify(
+                {
+                    "path": filepath or "/",
+                    "type": "directory",
+                    "items": items,
+                    "trace_id": trace_id,
+                }
+            )
+        else:
+            span.set_attribute("file.type", "file")
+            span.set_attribute("file.size", target.stat().st_size)
+            content = target.read_text()
+            logger.info(f"Read file: {filepath} ({len(content)} bytes)")
+
+            return jsonify(
+                {
+                    "path": filepath,
+                    "type": "file",
+                    "content": content,
+                    "size": len(content),
+                    "trace_id": trace_id,
+                }
+            )
+
+
+@app.route("/files/<path:filepath>", methods=["POST", "PUT"])
+def write_file(filepath: str):
+    """Write content to a file.
+    ---
+    tags:
+      - Files
+    summary: Create or update a file
+    description: |
+      Writes content to a file. Creates parent directories if they don't exist.
+      Content should be sent as the request body (text/plain or application/json with "content" field).
+    parameters:
+      - name: filepath
+        in: path
+        type: string
+        required: true
+        description: Path to the file (relative to storage root)
+      - name: body
+        in: body
+        required: true
+        description: File content (plain text or JSON with "content" field)
+        schema:
+          type: object
+          properties:
+            content:
+              type: string
+              example: "Hello, World!"
+    responses:
+      201:
+        description: File created
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: created
+            path:
+              type: string
+            size:
+              type: integer
+            trace_id:
+              type: string
+      200:
+        description: File updated
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: updated
+            path:
+              type: string
+            size:
+              type: integer
+            trace_id:
+              type: string
+      400:
+        description: Invalid path or missing content
+    """
+    with tracer.start_as_current_span("files-write") as span:
+        span.set_attribute("file.path", filepath)
+
+        target = get_safe_path(filepath)
+        if target is None:
+            span.set_status(trace.Status(trace.StatusCode.ERROR, "Invalid path"))
+            return jsonify({"error": "Invalid path", "path": filepath}), 400
+
+        # Get content from request
+        if request.is_json:
+            data = request.get_json()
+            content = data.get("content", "")
+        else:
+            content = request.get_data(as_text=True)
+
+        if not content and content != "":
+            span.set_status(trace.Status(trace.StatusCode.ERROR, "No content"))
+            return jsonify({"error": "No content provided"}), 400
+
+        # Check if file exists (for status code)
+        existed = target.exists()
+
+        # Create parent directories if needed
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write file
+        target.write_text(content)
+        span.set_attribute("file.size", len(content))
+        span.set_attribute("file.created", not existed)
+
+        status = "updated" if existed else "created"
+        status_code = 200 if existed else 201
+        logger.info(f"File {status}: {filepath} ({len(content)} bytes)")
+
+        return jsonify(
+            {
+                "status": status,
+                "path": filepath,
+                "size": len(content),
+                "trace_id": format(span.get_span_context().trace_id, "032x"),
+            }
+        ), status_code
+
+
+@app.route("/files/<path:filepath>", methods=["DELETE"])
+def delete_file(filepath: str):
+    """Delete a file or empty directory.
+    ---
+    tags:
+      - Files
+    summary: Delete a file or empty directory
+    description: |
+      Deletes a file or an empty directory.
+      Non-empty directories cannot be deleted (returns 400).
+    parameters:
+      - name: filepath
+        in: path
+        type: string
+        required: true
+        description: Path to the file or directory to delete
+    responses:
+      200:
+        description: File or directory deleted
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: deleted
+            path:
+              type: string
+            type:
+              type: string
+              enum: [file, directory]
+            trace_id:
+              type: string
+      404:
+        description: Path not found
+      400:
+        description: Invalid path or directory not empty
+    """
+    with tracer.start_as_current_span("files-delete") as span:
+        span.set_attribute("file.path", filepath)
+
+        target = get_safe_path(filepath)
+        if target is None:
+            span.set_status(trace.Status(trace.StatusCode.ERROR, "Invalid path"))
+            return jsonify({"error": "Invalid path", "path": filepath}), 400
+
+        if not target.exists():
+            span.set_status(trace.Status(trace.StatusCode.ERROR, "Not found"))
+            return jsonify({"error": "Path not found", "path": filepath}), 404
+
+        trace_id = format(span.get_span_context().trace_id, "032x")
+
+        if target.is_dir():
+            # Check if directory is empty
+            if any(target.iterdir()):
+                span.set_status(trace.Status(trace.StatusCode.ERROR, "Not empty"))
+                return jsonify({"error": "Directory not empty", "path": filepath}), 400
+            target.rmdir()
+            file_type = "directory"
+        else:
+            target.unlink()
+            file_type = "file"
+
+        span.set_attribute("file.type", file_type)
+        logger.info(f"Deleted {file_type}: {filepath}")
+
+        return jsonify(
+            {
+                "status": "deleted",
+                "path": filepath,
+                "type": file_type,
+                "trace_id": trace_id,
+            }
+        )
+
+
+@app.route("/files", methods=["POST"])
+def create_directory():
+    """Create a new directory.
+    ---
+    tags:
+      - Files
+    summary: Create a directory
+    description: Creates a new directory. Parent directories are created if needed.
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - path
+          properties:
+            path:
+              type: string
+              description: Directory path to create
+              example: "subdir/newdir"
+    responses:
+      201:
+        description: Directory created
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: created
+            path:
+              type: string
+            type:
+              type: string
+              example: directory
+            trace_id:
+              type: string
+      200:
+        description: Directory already exists
+      400:
+        description: Invalid path or missing path parameter
+    """
+    with tracer.start_as_current_span("files-mkdir") as span:
+        if not request.is_json:
+            return jsonify({"error": "JSON body required"}), 400
+
+        data = request.get_json()
+        dirpath = data.get("path", "")
+
+        if not dirpath:
+            span.set_status(trace.Status(trace.StatusCode.ERROR, "No path"))
+            return jsonify({"error": "Path is required"}), 400
+
+        span.set_attribute("file.path", dirpath)
+
+        target = get_safe_path(dirpath)
+        if target is None:
+            span.set_status(trace.Status(trace.StatusCode.ERROR, "Invalid path"))
+            return jsonify({"error": "Invalid path", "path": dirpath}), 400
+
+        trace_id = format(span.get_span_context().trace_id, "032x")
+
+        if target.exists():
+            if target.is_dir():
+                return jsonify(
+                    {
+                        "status": "exists",
+                        "path": dirpath,
+                        "type": "directory",
+                        "trace_id": trace_id,
+                    }
+                )
+            else:
+                return jsonify({"error": "Path exists as file", "path": dirpath}), 400
+
+        target.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Created directory: {dirpath}")
+
+        return jsonify(
+            {
+                "status": "created",
+                "path": dirpath,
+                "type": "directory",
+                "trace_id": trace_id,
+            }
+        ), 201
 
 
 if __name__ == "__main__":
