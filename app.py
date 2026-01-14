@@ -173,16 +173,7 @@ def ready():
 
 @app.route("/")
 def index():
-    """Redirect to Swagger UI.
-    ---
-    tags:
-      - Health
-    summary: Redirect to API documentation
-    description: Redirects to the Swagger UI documentation page.
-    responses:
-      302:
-        description: Redirect to /apidocs/
-    """
+    """Redirect to Swagger UI (not documented in API)."""
     return redirect("/apidocs/")
 
 
