@@ -14,5 +14,11 @@ opentelemetry-exporter-otlp-proto-grpc==1.27.0
 # Flask auto-instrumentation
 opentelemetry-instrumentation-flask==0.48b0
 
+# PostgreSQL driver
+psycopg2-binary==2.9.10
+
+# PostgreSQL auto-instrumentation
+opentelemetry-instrumentation-psycopg2==0.48b0
+
 # Production WSGI server
 gunicorn==23.0.0

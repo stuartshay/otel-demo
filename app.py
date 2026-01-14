@@ -15,14 +15,19 @@ import random
 import time
 from pathlib import Path
 
+import psycopg2
 from flasgger import Swagger
 from flask import Flask, jsonify, redirect, request
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_NAMESPACE, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+# Instrument psycopg2 for database tracing
+Psycopg2Instrumentor().instrument()
 
 # Configure logging
 logging.basicConfig(
@@ -103,6 +108,7 @@ swagger_template = {
     "tags": [
         {"name": "Health", "description": "Health and readiness endpoints"},
         {"name": "Demo", "description": "OpenTelemetry demonstration endpoints"},
+        {"name": "Database", "description": "PostgreSQL database operations"},
         {"name": "Files", "description": "NFS storage file operations"},
         {"name": "Observability", "description": "Observability configuration"},
     ],
@@ -449,6 +455,286 @@ def metrics_info():
             },
         }
     )
+
+
+# =============================================================================
+# Database Endpoints (PostgreSQL via PgBouncer)
+# =============================================================================
+
+
+def get_db_connection():
+    """Create a database connection using environment variables."""
+    return psycopg2.connect(
+        host=os.getenv("PGBOUNCER_HOST", "192.168.1.175"),
+        port=int(os.getenv("PGBOUNCER_PORT", "6432")),
+        database=os.getenv("POSTGRES_DB", "owntracks"),
+        user=os.getenv("POSTGRES_USER", "development"),
+        password=os.getenv("POSTGRES_PASSWORD", "development"),
+    )
+
+
+@app.route("/db/status")
+def db_status():
+    """Database connection status.
+    ---
+    tags:
+      - Database
+    summary: Check database connection
+    description: Tests the connection to PostgreSQL via PgBouncer and returns connection info.
+    responses:
+      200:
+        description: Database connection successful
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: connected
+            database:
+              type: string
+              example: owntracks
+            host:
+              type: string
+              example: "192.168.1.175"
+            port:
+              type: integer
+              example: 6432
+            server_version:
+              type: string
+              example: "140005"
+            trace_id:
+              type: string
+      500:
+        description: Database connection failed
+    """
+    with tracer.start_as_current_span("db-status") as span:
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT version();")
+            version = cursor.fetchone()[0]
+            cursor.close()
+            conn.close()
+
+            span.set_attribute("db.connected", True)
+            span.set_attribute("db.system", "postgresql")
+
+            return jsonify(
+                {
+                    "status": "connected",
+                    "database": os.getenv("POSTGRES_DB", "owntracks"),
+                    "host": os.getenv("PGBOUNCER_HOST", "192.168.1.175"),
+                    "port": int(os.getenv("PGBOUNCER_PORT", "6432")),
+                    "server_version": version,
+                    "trace_id": format(span.get_span_context().trace_id, "032x"),
+                }
+            )
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            logger.error(f"Database connection failed: {e}")
+            return jsonify(
+                {
+                    "status": "error",
+                    "error": str(e),
+                    "trace_id": format(span.get_span_context().trace_id, "032x"),
+                }
+            ), 500
+
+
+@app.route("/db/locations")
+def db_locations():
+    """Query owntracks locations.
+    ---
+    tags:
+      - Database
+    summary: Get location records from owntracks
+    description: |
+      Retrieves location records from the owntracks.locations table.
+      Supports pagination, sorting, and filtering by device_id.
+    parameters:
+      - name: limit
+        in: query
+        type: integer
+        default: 20
+        description: Maximum number of records to return (max 100)
+        example: 10
+      - name: offset
+        in: query
+        type: integer
+        default: 0
+        description: Number of records to skip for pagination
+        example: 0
+      - name: sort
+        in: query
+        type: string
+        default: created_at
+        description: Column to sort by (created_at, tst, acc, alt, vel)
+        enum: [created_at, tst, acc, alt, vel, lat, lon]
+        example: created_at
+      - name: order
+        in: query
+        type: string
+        default: desc
+        description: Sort order
+        enum: [asc, desc]
+        example: desc
+      - name: device_id
+        in: query
+        type: string
+        required: false
+        description: Filter by device identifier (tid field)
+        example: "iphone"
+    responses:
+      200:
+        description: Location records
+        schema:
+          type: object
+          properties:
+            count:
+              type: integer
+              example: 10
+            limit:
+              type: integer
+              example: 20
+            offset:
+              type: integer
+              example: 0
+            sort:
+              type: string
+              example: created_at
+            order:
+              type: string
+              example: desc
+            locations:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  lat:
+                    type: number
+                    format: float
+                  lon:
+                    type: number
+                    format: float
+                  acc:
+                    type: integer
+                    description: Accuracy in meters
+                  alt:
+                    type: integer
+                    description: Altitude
+                  vel:
+                    type: integer
+                    description: Velocity
+                  tst:
+                    type: integer
+                    description: Unix timestamp
+                  tid:
+                    type: string
+                    description: Device tracker ID
+                  created_at:
+                    type: string
+                    format: datetime
+            trace_id:
+              type: string
+      400:
+        description: Invalid parameters
+      500:
+        description: Database query failed
+    """
+    with tracer.start_as_current_span("db-locations") as span:
+        try:
+            # Parse parameters
+            limit = min(int(request.args.get("limit", 20)), 100)
+            offset = int(request.args.get("offset", 0))
+            sort = request.args.get("sort", "created_at")
+            order = request.args.get("order", "desc").upper()
+            device_id = request.args.get("device_id")
+
+            # Validate sort column
+            allowed_sorts = ["created_at", "tst", "acc", "alt", "vel", "lat", "lon"]
+            if sort not in allowed_sorts:
+                sort = "created_at"
+
+            # Validate order
+            if order not in ["ASC", "DESC"]:
+                order = "DESC"
+
+            span.set_attribute("db.limit", limit)
+            span.set_attribute("db.offset", offset)
+            span.set_attribute("db.sort", sort)
+            span.set_attribute("db.order", order)
+            if device_id:
+                span.set_attribute("db.device_id", device_id)
+
+            conn = get_db_connection()
+            cursor = conn.cursor()
+
+            # Build query
+            if device_id:
+                query = f"""
+                    SELECT id, lat, lon, acc, alt, vel, tst, tid, created_at
+                    FROM locations
+                    WHERE tid = %s
+                    ORDER BY {sort} {order}
+                    LIMIT %s OFFSET %s
+                """
+                cursor.execute(query, (device_id, limit, offset))
+            else:
+                query = f"""
+                    SELECT id, lat, lon, acc, alt, vel, tst, tid, created_at
+                    FROM locations
+                    ORDER BY {sort} {order}
+                    LIMIT %s OFFSET %s
+                """
+                cursor.execute(query, (limit, offset))
+
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+
+            locations = [
+                {
+                    "id": row[0],
+                    "lat": float(row[1]) if row[1] else None,
+                    "lon": float(row[2]) if row[2] else None,
+                    "acc": row[3],
+                    "alt": row[4],
+                    "vel": row[5],
+                    "tst": row[6],
+                    "tid": row[7],
+                    "created_at": row[8].isoformat() if row[8] else None,
+                }
+                for row in rows
+            ]
+
+            span.set_attribute("db.result_count", len(locations))
+            logger.info(f"Retrieved {len(locations)} location records")
+
+            return jsonify(
+                {
+                    "count": len(locations),
+                    "limit": limit,
+                    "offset": offset,
+                    "sort": sort,
+                    "order": order.lower(),
+                    "locations": locations,
+                    "trace_id": format(span.get_span_context().trace_id, "032x"),
+                }
+            )
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            logger.error(f"Database query failed: {e}")
+            return jsonify(
+                {
+                    "status": "error",
+                    "error": str(e),
+                    "trace_id": format(span.get_span_context().trace_id, "032x"),
+                }
+            ), 500
 
 
 # =============================================================================
