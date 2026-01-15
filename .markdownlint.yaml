@@ -1,0 +1,33 @@
+---
+# Markdownlint configuration
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Default state for all rules
+default: true
+
+# MD013 - Line length (disabled - documentation often has long lines)
+MD013: false
+
+# MD024 - Multiple headings with the same content (allow in different sections)
+MD024:
+  siblings_only: true
+
+# MD029 - Ordered list item prefix
+# Disabled because step-by-step guides use explicit numbering (1. 2. 3.)
+# with code blocks between items which breaks list detection
+MD029: false
+
+# MD033 - Inline HTML (allow for flexibility)
+MD033: false
+
+# MD041 - First line in a file should be a top-level heading
+# Disabled for templates that use front matter or special formats
+MD041: false
+
+# MD040 - Fenced code blocks should have a language specified
+# Disabled - some code blocks are plain output/config without specific language
+MD040: false
+
+# MD060 - Table column style
+# Disabled - tables are properly formatted, rule is overly strict about spacing
+MD060: false

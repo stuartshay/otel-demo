@@ -35,7 +35,7 @@ curl http://localhost:8080/health
 ### Environment Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| -------- | ------- | ----------- |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | OTel Collector gRPC endpoint |
 | `OTEL_SERVICE_NAME` | `otel-demo` | Service name in traces |
 | `OTEL_SERVICE_NAMESPACE` | `otel-demo` | Service namespace |
@@ -304,7 +304,7 @@ WHERE service.name = 'otel-demo' SINCE 1 hour ago TIMESERIES
 ### Key Metrics to Monitor
 
 | Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
+| ------ | ----------- | --------------- |
 | Error Rate | % of requests with errors | > 1% |
 | P95 Latency | 95th percentile response time | > 500ms |
 | Throughput | Requests per minute | < 10 (availability) |
