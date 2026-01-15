@@ -1,6 +1,21 @@
 # Authentication Rollout Plan (AWS Cognito + oauth2-proxy)
 
+**Status**: Planning document for future implementation
+
+**Quick Start**: See [authentication-quickstart.md](./authentication-quickstart.md) for step-by-step implementation guide.
+
 Opinionated plan to protect `otel-demo` with Cognito-backed OIDC and an ingress auth proxy, keeping the Flask app unchanged.
+
+## Current State
+
+The otel-demo application currently has:
+
+- ✅ Health endpoints (`/health`, `/ready`) - unprotected, suitable for K8s probes
+- ✅ Swagger UI (`/apidocs`) - currently open, ready for OAuth2 integration
+- ✅ File operations (`/files/*`) - unprotected, will benefit from authentication
+- ✅ Database operations (`/db/*`) - unprotected, will benefit from authentication
+- ✅ Token CLI utility (`scripts/token_cli.py`) - ready for OAuth2 client credentials flow
+- ❌ No authentication layer - this plan adds it at the ingress level
 
 ## Objectives
 
