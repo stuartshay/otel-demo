@@ -645,9 +645,9 @@ def db_locations():
                   device_id:
                     type: string
                     description: Device identifier
-                  tracker_id:
+                  tid:
                     type: string
-                    description: Tracker ID (tid)
+                    description: Tracker ID
                   latitude:
                     type: number
                     format: float
@@ -727,12 +727,12 @@ def db_locations():
                 span.set_attribute("db.device_id", device_id)
 
             with get_db_connection() as conn, conn.cursor() as cursor:
-                # Build query using actual owntracks_locations schema
+                # Build query using actual locations table schema
                 if device_id:
                     query = f"""
-                        SELECT id, device_id, tracker_id, latitude, longitude,
+                        SELECT id, device_id, tid, latitude, longitude,
                                accuracy, altitude, velocity, battery, created_at
-                        FROM owntracks_locations
+                        FROM locations
                         WHERE device_id = %s
                         ORDER BY {sort_column} {order}
                         LIMIT %s OFFSET %s
@@ -740,9 +740,9 @@ def db_locations():
                     cursor.execute(query, (device_id, limit, offset))
                 else:
                     query = f"""
-                        SELECT id, device_id, tracker_id, latitude, longitude,
+                        SELECT id, device_id, tid, latitude, longitude,
                                accuracy, altitude, velocity, battery, created_at
-                        FROM owntracks_locations
+                        FROM locations
                         ORDER BY {sort_column} {order}
                         LIMIT %s OFFSET %s
                     """
@@ -754,7 +754,7 @@ def db_locations():
                 {
                     "id": row[0],
                     "device_id": row[1],
-                    "tracker_id": row[2],
+                    "tid": row[2],
                     "latitude": float(row[3]) if row[3] else None,
                     "longitude": float(row[4]) if row[4] else None,
                     "accuracy": row[5],
@@ -1198,5 +1198,7 @@ def create_directory():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
+    logger.info(f"Starting otel-demo on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
     logger.info(f"Starting otel-demo on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
