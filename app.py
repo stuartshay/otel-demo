@@ -463,13 +463,38 @@ def metrics_info():
 
 
 def get_db_connection():
-    """Create a database connection using environment variables."""
+    """Create a database connection using environment variables.
+
+    Required environment variables:
+        POSTGRES_USER: Database username
+        POSTGRES_PASSWORD: Database password
+
+    Optional environment variables (with defaults for local development):
+        PGBOUNCER_HOST: Database host (default: 192.168.1.175)
+        PGBOUNCER_PORT: Database port (default: 6432)
+        POSTGRES_DB: Database name (default: owntracks)
+
+    Raises:
+        RuntimeError: If required credentials are not configured.
+    """
+    host = os.getenv("PGBOUNCER_HOST", "192.168.1.175")
+    port = int(os.getenv("PGBOUNCER_PORT", "6432"))
+    database = os.getenv("POSTGRES_DB", "owntracks")
+    user = os.getenv("POSTGRES_USER")
+    password = os.getenv("POSTGRES_PASSWORD")
+
+    if not user or not password:
+        raise RuntimeError(
+            "Database credentials not configured. "
+            "Set POSTGRES_USER and POSTGRES_PASSWORD environment variables."
+        )
+
     return psycopg2.connect(
-        host=os.getenv("PGBOUNCER_HOST", "192.168.1.175"),
-        port=int(os.getenv("PGBOUNCER_PORT", "6432")),
-        database=os.getenv("POSTGRES_DB", "owntracks"),
-        user=os.getenv("POSTGRES_USER", "development"),
-        password=os.getenv("POSTGRES_PASSWORD", "development"),
+        host=host,
+        port=port,
+        database=database,
+        user=user,
+        password=password,
     )
 
 
@@ -509,12 +534,9 @@ def db_status():
     """
     with tracer.start_as_current_span("db-status") as span:
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT version();")
-            version = cursor.fetchone()[0]
-            cursor.close()
-            conn.close()
+            with get_db_connection() as conn, conn.cursor() as cursor:
+                cursor.execute("SELECT version();")
+                version = cursor.fetchone()[0]
 
             span.set_attribute("db.connected", True)
             span.set_attribute("db.system", "postgresql")
@@ -646,9 +668,27 @@ def db_locations():
     """
     with tracer.start_as_current_span("db-locations") as span:
         try:
-            # Parse parameters
-            limit = min(int(request.args.get("limit", 20)), 100)
-            offset = int(request.args.get("offset", 0))
+            # Parse and validate parameters
+            limit_raw = request.args.get("limit", "20")
+            offset_raw = request.args.get("offset", "0")
+
+            # Validate limit and offset are non-negative integers
+            try:
+                limit = min(int(limit_raw), 100)
+                offset = int(offset_raw)
+                if limit < 0 or offset < 0:
+                    raise ValueError("Negative values not allowed")
+            except ValueError:
+                error_msg = "Invalid limit or offset parameter; expected non-negative integers."
+                span.set_status(trace.Status(trace.StatusCode.ERROR, error_msg))
+                return jsonify(
+                    {
+                        "status": "error",
+                        "error": error_msg,
+                        "trace_id": format(span.get_span_context().trace_id, "032x"),
+                    }
+                ), 400
+
             sort = request.args.get("sort", "created_at")
             order = request.args.get("order", "desc").upper()
             device_id = request.args.get("device_id")
@@ -669,31 +709,27 @@ def db_locations():
             if device_id:
                 span.set_attribute("db.device_id", device_id)
 
-            conn = get_db_connection()
-            cursor = conn.cursor()
+            with get_db_connection() as conn, conn.cursor() as cursor:
+                # Build query
+                if device_id:
+                    query = f"""
+                        SELECT id, lat, lon, acc, alt, vel, tst, tid, created_at
+                        FROM locations
+                        WHERE tid = %s
+                        ORDER BY {sort} {order}
+                        LIMIT %s OFFSET %s
+                    """
+                    cursor.execute(query, (device_id, limit, offset))
+                else:
+                    query = f"""
+                        SELECT id, lat, lon, acc, alt, vel, tst, tid, created_at
+                        FROM locations
+                        ORDER BY {sort} {order}
+                        LIMIT %s OFFSET %s
+                    """
+                    cursor.execute(query, (limit, offset))
 
-            # Build query
-            if device_id:
-                query = f"""
-                    SELECT id, lat, lon, acc, alt, vel, tst, tid, created_at
-                    FROM locations
-                    WHERE tid = %s
-                    ORDER BY {sort} {order}
-                    LIMIT %s OFFSET %s
-                """
-                cursor.execute(query, (device_id, limit, offset))
-            else:
-                query = f"""
-                    SELECT id, lat, lon, acc, alt, vel, tst, tid, created_at
-                    FROM locations
-                    ORDER BY {sort} {order}
-                    LIMIT %s OFFSET %s
-                """
-                cursor.execute(query, (limit, offset))
-
-            rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
+                rows = cursor.fetchall()
 
             locations = [
                 {
@@ -1142,5 +1178,7 @@ def create_directory():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
+    logger.info(f"Starting otel-demo on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
     logger.info(f"Starting otel-demo on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
