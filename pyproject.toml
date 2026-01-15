@@ -46,6 +46,7 @@ ignore = [
     "B008",   # do not perform function calls in argument defaults
     "C901",   # too complex
     "ARG001", # unused function argument
+    "ARG002", # unused method argument (used for pytest fixtures)
 ]
 
 [tool.ruff.lint.isort]
