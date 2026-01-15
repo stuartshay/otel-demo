@@ -124,7 +124,8 @@ class TestDatabaseService:
         service = DatabaseService(mock_config)
         service.initialize()
 
-        with pytest.raises(ValueError), service.get_connection():
+        # Test that exceptions trigger rollback
+        with pytest.raises(ValueError, match="Test error"), service.get_connection():
             raise ValueError("Test error")
 
         mock_conn.rollback.assert_called_once()

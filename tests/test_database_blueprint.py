@@ -141,7 +141,7 @@ class TestDatabaseLocationsEndpoint:
         assert response.status_code == 400
         data = response.get_json()
         assert data["status"] == "error"
-        assert "Invalid limit" in data["error"]
+        assert "Invalid limit or offset" in data["error"]
 
     @patch("app.blueprints.database._get_or_init_db_service")
     def test_db_locations_negative_offset(
