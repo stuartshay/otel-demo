@@ -49,7 +49,7 @@ jobs:
 
       - name: Verify imports
         run: |
-          python -c "from app import app; print('✓ App imports successfully')"
+          python -c "from app import create_app; app = create_app(); print('✓ App factory imports successfully')"
 
   docker-lint:
     name: Dockerfile Lint
