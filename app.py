@@ -26,9 +26,6 @@ from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_NAMESPACE, Resourc
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-# Instrument psycopg2 for database tracing
-Psycopg2Instrumentor().instrument()
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -67,6 +64,9 @@ def configure_opentelemetry():
 
 # Initialize OTel
 tracer = configure_opentelemetry()
+
+# Instrument psycopg2 for database tracing (after tracer provider is configured)
+Psycopg2Instrumentor().instrument()
 
 # Flask app
 app = Flask(__name__)
@@ -478,7 +478,13 @@ def get_db_connection():
         RuntimeError: If required credentials are not configured.
     """
     host = os.getenv("PGBOUNCER_HOST", "192.168.1.175")
-    port = int(os.getenv("PGBOUNCER_PORT", "6432"))
+    port_str = os.getenv("PGBOUNCER_PORT", "6432")
+    try:
+        port = int(port_str)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"Invalid PGBOUNCER_PORT value: {port_str!r}. Port must be an integer."
+        ) from exc
     database = os.getenv("POSTGRES_DB", "owntracks")
     user = os.getenv("POSTGRES_USER")
     password = os.getenv("POSTGRES_PASSWORD")
@@ -495,6 +501,7 @@ def get_db_connection():
         database=database,
         user=user,
         password=password,
+        connect_timeout=5,  # Fail fast if DB unreachable
     )
 
 
@@ -553,12 +560,12 @@ def db_status():
             )
         except Exception as e:
             span.record_exception(e)
-            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-            logger.error(f"Database connection failed: {e}")
+            span.set_status(trace.Status(trace.StatusCode.ERROR, "Database connection failed"))
+            logger.error(f"Database connection failed: {e}", exc_info=True)
             return jsonify(
                 {
                     "status": "error",
-                    "error": str(e),
+                    "error": "Database connection failed. Please try again later.",
                     "trace_id": format(span.get_span_context().trace_id, "032x"),
                 }
             ), 500
@@ -591,8 +598,8 @@ def db_locations():
         in: query
         type: string
         default: created_at
-        description: Column to sort by (created_at, tst, acc, alt, vel)
-        enum: [created_at, tst, acc, alt, vel, lat, lon]
+        description: Column to sort by
+        enum: [created_at, latitude, longitude, accuracy, altitude, velocity, battery]
         example: created_at
       - name: order
         in: query
@@ -605,7 +612,7 @@ def db_locations():
         in: query
         type: string
         required: false
-        description: Filter by device identifier (tid field)
+        description: Filter by device identifier
         example: "iphone"
     responses:
       200:
@@ -635,27 +642,30 @@ def db_locations():
                 properties:
                   id:
                     type: integer
-                  lat:
+                  device_id:
+                    type: string
+                    description: Device identifier
+                  tracker_id:
+                    type: string
+                    description: Tracker ID (tid)
+                  latitude:
                     type: number
                     format: float
-                  lon:
+                  longitude:
                     type: number
                     format: float
-                  acc:
+                  accuracy:
                     type: integer
                     description: Accuracy in meters
-                  alt:
+                  altitude:
                     type: integer
-                    description: Altitude
-                  vel:
+                    description: Altitude in meters
+                  velocity:
                     type: integer
-                    description: Velocity
-                  tst:
+                    description: Velocity in km/h
+                  battery:
                     type: integer
-                    description: Unix timestamp
-                  tid:
-                    type: string
-                    description: Device tracker ID
+                    description: Battery percentage
                   created_at:
                     type: string
                     format: datetime
@@ -693,10 +703,17 @@ def db_locations():
             order = request.args.get("order", "desc").upper()
             device_id = request.args.get("device_id")
 
-            # Validate sort column
-            allowed_sorts = ["created_at", "tst", "acc", "alt", "vel", "lat", "lon"]
-            if sort not in allowed_sorts:
-                sort = "created_at"
+            # Validate sort column (mapped to actual DB columns)
+            allowed_sorts = {
+                "created_at": "created_at",
+                "latitude": "latitude",
+                "longitude": "longitude",
+                "accuracy": "accuracy",
+                "altitude": "altitude",
+                "velocity": "velocity",
+                "battery": "battery",
+            }
+            sort_column = allowed_sorts.get(sort, "created_at")
 
             # Validate order
             if order not in ["ASC", "DESC"]:
@@ -710,21 +727,23 @@ def db_locations():
                 span.set_attribute("db.device_id", device_id)
 
             with get_db_connection() as conn, conn.cursor() as cursor:
-                # Build query
+                # Build query using actual owntracks_locations schema
                 if device_id:
                     query = f"""
-                        SELECT id, lat, lon, acc, alt, vel, tst, tid, created_at
-                        FROM locations
-                        WHERE tid = %s
-                        ORDER BY {sort} {order}
+                        SELECT id, device_id, tracker_id, latitude, longitude,
+                               accuracy, altitude, velocity, battery, created_at
+                        FROM owntracks_locations
+                        WHERE device_id = %s
+                        ORDER BY {sort_column} {order}
                         LIMIT %s OFFSET %s
                     """
                     cursor.execute(query, (device_id, limit, offset))
                 else:
                     query = f"""
-                        SELECT id, lat, lon, acc, alt, vel, tst, tid, created_at
-                        FROM locations
-                        ORDER BY {sort} {order}
+                        SELECT id, device_id, tracker_id, latitude, longitude,
+                               accuracy, altitude, velocity, battery, created_at
+                        FROM owntracks_locations
+                        ORDER BY {sort_column} {order}
                         LIMIT %s OFFSET %s
                     """
                     cursor.execute(query, (limit, offset))
@@ -734,14 +753,15 @@ def db_locations():
             locations = [
                 {
                     "id": row[0],
-                    "lat": float(row[1]) if row[1] else None,
-                    "lon": float(row[2]) if row[2] else None,
-                    "acc": row[3],
-                    "alt": row[4],
-                    "vel": row[5],
-                    "tst": row[6],
-                    "tid": row[7],
-                    "created_at": row[8].isoformat() if row[8] else None,
+                    "device_id": row[1],
+                    "tracker_id": row[2],
+                    "latitude": float(row[3]) if row[3] else None,
+                    "longitude": float(row[4]) if row[4] else None,
+                    "accuracy": row[5],
+                    "altitude": row[6],
+                    "velocity": row[7],
+                    "battery": row[8],
+                    "created_at": row[9].isoformat() if row[9] else None,
                 }
                 for row in rows
             ]
@@ -762,12 +782,12 @@ def db_locations():
             )
         except Exception as e:
             span.record_exception(e)
-            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-            logger.error(f"Database query failed: {e}")
+            span.set_status(trace.Status(trace.StatusCode.ERROR, "Database query failed"))
+            logger.error(f"Database query failed: {e}", exc_info=True)
             return jsonify(
                 {
                     "status": "error",
-                    "error": str(e),
+                    "error": "Internal server error while querying locations.",
                     "trace_id": format(span.get_span_context().trace_id, "032x"),
                 }
             ), 500
@@ -1178,7 +1198,5 @@ def create_directory():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
-    logger.info(f"Starting otel-demo on port {port}")
-    app.run(host="0.0.0.0", port=port, debug=False)
     logger.info(f"Starting otel-demo on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
