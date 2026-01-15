@@ -209,15 +209,15 @@ def write_file(filepath: str):
             storage = _get_or_init_storage_service()
 
             # Get content from request
+            # Note: Empty string is valid content, only missing body is an error
             if request.is_json:
                 data = request.get_json()
+                if data is None:
+                    span.set_status(trace.Status(trace.StatusCode.ERROR, "No content"))
+                    return jsonify({"error": "Invalid JSON body"}), 400
                 content = data.get("content", "")
             else:
                 content = request.get_data(as_text=True)
-
-            if content is None:
-                span.set_status(trace.Status(trace.StatusCode.ERROR, "No content"))
-                return jsonify({"error": "No content provided"}), 400
 
             status, size = storage.write_file(filepath, content)
             span.set_attribute("file.size", size)

@@ -8,6 +8,7 @@ with proper resource management and health checking.
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -220,13 +221,28 @@ class DatabaseService:
 
             rows = cur.fetchall()
 
+        def _to_float_safe(value: Any, field: str, record_id: Any) -> float | None:
+            """Safely convert value to float, returning None on failure."""
+            if value is None:
+                return None
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                logger.warning(
+                    "Invalid %s value %r for location id %r; storing as None",
+                    field,
+                    value,
+                    record_id,
+                )
+                return None
+
         return [
             LocationRecord(
                 id=row[0],
                 device_id=row[1],
                 tid=row[2],
-                latitude=float(row[3]) if row[3] else None,
-                longitude=float(row[4]) if row[4] else None,
+                latitude=_to_float_safe(row[3], "latitude", row[0]),
+                longitude=_to_float_safe(row[4], "longitude", row[0]),
                 accuracy=row[5],
                 altitude=row[6],
                 velocity=row[7],
@@ -239,6 +255,7 @@ class DatabaseService:
 
 # Global database service instance (initialized by app factory)
 _db_service: DatabaseService | None = None
+_db_service_lock = threading.Lock()
 
 
 def get_db_service() -> DatabaseService:
@@ -258,6 +275,9 @@ def get_db_service() -> DatabaseService:
 def init_db_service(config: Config) -> DatabaseService:
     """Initialize the global database service.
 
+    Thread-safe initialization using a lock to prevent race conditions
+    in multi-threaded environments like gunicorn.
+
     Args:
         config: Application configuration.
 
@@ -265,10 +285,13 @@ def init_db_service(config: Config) -> DatabaseService:
         The initialized DatabaseService.
     """
     global _db_service
-    _db_service = DatabaseService(config)
-    try:
-        _db_service.initialize()
-    except Exception as e:
-        logger.warning(f"Database pool initialization failed: {e}")
-        # Don't fail app startup if DB is unavailable
-    return _db_service
+    with _db_service_lock:
+        if _db_service is not None:
+            return _db_service
+        _db_service = DatabaseService(config)
+        try:
+            _db_service.initialize()
+        except Exception as e:
+            logger.warning(f"Database pool initialization failed: {e}")
+            # Don't fail app startup if DB is unavailable
+        return _db_service

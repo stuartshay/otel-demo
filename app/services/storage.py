@@ -8,6 +8,7 @@ data directory, with path traversal protection.
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -286,6 +287,7 @@ class StorageService:
 
 # Global storage service instance
 _storage_service: StorageService | None = None
+_storage_service_lock = threading.Lock()
 
 
 def get_storage_service() -> StorageService:
@@ -305,6 +307,9 @@ def get_storage_service() -> StorageService:
 def init_storage_service(config: Config) -> StorageService:
     """Initialize the global storage service.
 
+    Thread-safe initialization using a lock to prevent race conditions
+    in multi-threaded environments like gunicorn.
+
     Args:
         config: Application configuration.
 
@@ -312,5 +317,8 @@ def init_storage_service(config: Config) -> StorageService:
         The initialized StorageService.
     """
     global _storage_service
-    _storage_service = StorageService(config.data_dir)
-    return _storage_service
+    with _storage_service_lock:
+        if _storage_service is not None:
+            return _storage_service
+        _storage_service = StorageService(config.data_dir)
+        return _storage_service

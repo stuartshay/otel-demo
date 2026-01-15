@@ -98,9 +98,42 @@ class Config:
         schemes_str = os.getenv("SWAGGER_SCHEMES", "http")
         swagger_schemes = tuple(s.strip() for s in schemes_str.split(","))
 
+        # Parse PORT with validation
+        port_env = os.getenv("PORT", "8080")
+        try:
+            port = int(port_env)
+        except ValueError as exc:
+            raise ValueError(f"Invalid PORT value: {port_env!r}. Port must be an integer.") from exc
+
+        # Parse DB pool settings with validation
+        db_pool_min_str = os.getenv("DB_POOL_MIN", "1")
+        db_pool_max_str = os.getenv("DB_POOL_MAX", "5")
+        db_connect_timeout_str = os.getenv("DB_CONNECT_TIMEOUT", "5")
+
+        try:
+            db_pool_min = int(db_pool_min_str)
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid DB_POOL_MIN value: {db_pool_min_str!r}. Must be an integer."
+            ) from exc
+
+        try:
+            db_pool_max = int(db_pool_max_str)
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid DB_POOL_MAX value: {db_pool_max_str!r}. Must be an integer."
+            ) from exc
+
+        try:
+            db_connect_timeout = int(db_connect_timeout_str)
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid DB_CONNECT_TIMEOUT value: {db_connect_timeout_str!r}. Must be an integer."
+            ) from exc
+
         return cls(
             # Server
-            port=int(os.getenv("PORT", "8080")),
+            port=port,
             data_dir=Path(os.getenv("DATA_DIR", "/data")),
             # OpenTelemetry
             otel_endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317"),
@@ -117,9 +150,9 @@ class Config:
             db_name=os.getenv("POSTGRES_DB", "owntracks"),
             db_user=os.getenv("POSTGRES_USER"),
             db_password=os.getenv("POSTGRES_PASSWORD"),
-            db_pool_min=int(os.getenv("DB_POOL_MIN", "1")),
-            db_pool_max=int(os.getenv("DB_POOL_MAX", "5")),
-            db_connect_timeout=int(os.getenv("DB_CONNECT_TIMEOUT", "5")),
+            db_pool_min=db_pool_min,
+            db_pool_max=db_pool_max,
+            db_connect_timeout=db_connect_timeout,
             # Swagger
             swagger_host=os.getenv("SWAGGER_HOST", ""),
             swagger_schemes=swagger_schemes,
