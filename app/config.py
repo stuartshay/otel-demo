@@ -75,6 +75,11 @@ class Config:
     swagger_host: str = ""
     swagger_schemes: tuple[str, ...] = ("http",)
 
+    # OAuth2/Cognito settings (for Swagger UI)
+    cognito_domain: str = ""
+    cognito_client_id: str = ""
+    oauth2_enabled: bool = False
+
     @classmethod
     def from_env(cls) -> Config:
         """Create configuration from environment variables.
@@ -156,6 +161,10 @@ class Config:
             # Swagger
             swagger_host=os.getenv("SWAGGER_HOST", ""),
             swagger_schemes=swagger_schemes,
+            # OAuth2/Cognito
+            cognito_domain=os.getenv("COGNITO_DOMAIN", ""),
+            cognito_client_id=os.getenv("COGNITO_CLIENT_ID", ""),
+            oauth2_enabled=os.getenv("OAUTH2_ENABLED", "false").lower() == "true",
         )
 
     def validate_database(self) -> None:
