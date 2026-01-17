@@ -89,14 +89,14 @@ def _init_swagger(flask_app: Flask, config: Config) -> Swagger:
         swagger_template["securityDefinitions"] = {
             "oauth2": {
                 "type": "oauth2",
-                "flow": "implicit",
+                "flow": "accessCode",
                 "authorizationUrl": f"{config.cognito_domain}/oauth2/authorize",
+                "tokenUrl": f"{config.cognito_domain}/oauth2/token",
                 "scopes": {
                     "openid": "OpenID Connect scope",
                     "email": "Access email address",
                     "profile": "Access user profile",
                 },
-                "x-tokenName": "id_token",
             },
             "bearerAuth": {
                 "type": "apiKey",
@@ -105,7 +105,7 @@ def _init_swagger(flask_app: Flask, config: Config) -> Swagger:
                 "description": "Bearer token (e.g., 'Bearer eyJ...')",
             },
         }
-        # Apply security globally (except health endpoints)
+        # Apply security globally; individual endpoints can override (e.g., health via security=[])
         swagger_template["security"] = [{"oauth2": ["openid", "email", "profile"]}]
 
     return Swagger(flask_app, config=swagger_config, template=swagger_template)

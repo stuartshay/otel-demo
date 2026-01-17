@@ -178,3 +178,16 @@ class Config:
                 "Database credentials not configured. "
                 "Set POSTGRES_USER and POSTGRES_PASSWORD environment variables."
             )
+
+    def validate_oauth2(self) -> None:
+        """Validate OAuth2 configuration when enabled.
+
+        Raises:
+            RuntimeError: If OAuth2 is enabled but required settings are missing.
+        """
+        if self.oauth2_enabled and (not self.cognito_domain or not self.cognito_client_id):
+            raise RuntimeError(
+                "OAuth2 is enabled but configuration is incomplete. "
+                "Set COGNITO_DOMAIN and COGNITO_CLIENT_ID environment variables, "
+                "or disable OAuth2 by setting OAUTH2_ENABLED=false."
+            )
