@@ -45,6 +45,9 @@ def test_config() -> Config:
         db_connect_timeout=5,
         swagger_host="",
         swagger_schemes=("http",),
+        cognito_domain="",
+        cognito_client_id="",
+        oauth2_enabled=False,
     )
 
 
