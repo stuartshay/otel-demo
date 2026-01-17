@@ -97,6 +97,11 @@ def _init_swagger(flask_app: Flask, config: Config) -> Swagger:
                     "email": "Access email address",
                     "profile": "Access user profile",
                 },
+                # Vendor extensions for OAuth2 configuration hints
+                "x-client-id": config.cognito_client_id,
+                "x-usePkce": True,
+                "description": f"OAuth2 Authorization Code flow with PKCE. "
+                f"Client ID: {config.cognito_client_id} (leave client_secret empty)",
             },
             "bearerAuth": {
                 "type": "apiKey",
