@@ -221,13 +221,40 @@ jobs:
           # Generate types from current commit (from source code, not API)
           bash scripts/generate-types.sh --from-code
 
-          # Check if apispec.json changed in this commit
-          if git diff HEAD~1 HEAD --name-only | grep -q "app/"; then
+          # Check if files that affect types changed in this commit
+          CHANGED_FILES=$(git diff HEAD~1 HEAD --name-only)
+          SHOULD_PUBLISH=false
+
+          # Check for API code changes
+          if echo "$CHANGED_FILES" | grep -q "app/"; then
+            echo "✓ API code changed (app/ directory)"
+            SHOULD_PUBLISH=true
+          fi
+
+          # Check for type generation script changes
+          if echo "$CHANGED_FILES" | grep -q "^scripts/generate-"; then
+            echo "✓ Type generation scripts changed"
+            SHOULD_PUBLISH=true
+          fi
+
+          # Check for package.json version changes
+          if echo "$CHANGED_FILES" | grep -q "packages/otel-types/package.json"; then
+            echo "✓ Types package.json changed"
+            SHOULD_PUBLISH=true
+          fi
+
+          # Check for workflow changes that affect type generation
+          if echo "$CHANGED_FILES" | grep -Fq ".github/workflows/docker.yml"; then
+            echo "✓ Workflow changed"
+            SHOULD_PUBLISH=true
+          fi
+
+          if [ "$SHOULD_PUBLISH" = true ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "API code changed - schema may have changed"
+            echo "Schema or type generation changed - will publish"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "No API code changes detected"
+            echo "No changes affecting types detected"
           fi
 
           # Extract version from package.json
