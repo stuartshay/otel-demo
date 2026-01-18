@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 """
 Generate OpenAPI specification from Flask app code.
-This runs the Flask app in spec-generation mode without starting the server.
+
+This script is designed for CI/CD pipelines to generate the OpenAPI spec
+without starting a real HTTP server. It imports the Flask app, initializes
+it using test configuration, and uses Flask's test client to request the
+/apispec.json endpoint.
+
+OpenTelemetry is disabled via environment variables to prevent slow or flaky
+collector connection attempts, keeping spec generation fast and deterministic
+in automated environments.
 """
 
 import json
@@ -9,8 +17,7 @@ import os
 import sys
 from pathlib import Path
 
-# Disable OpenTelemetry to avoid slow collector connection attempts
-os.environ["OTEL_SDK_DISABLED"] = "true"
+# Disable OpenTelemetry exports to avoid slow collector connection attempts
 os.environ["OTEL_TRACES_EXPORTER"] = "none"
 os.environ["OTEL_METRICS_EXPORTER"] = "none"
 
@@ -24,7 +31,7 @@ from app.config import Config  # noqa: E402
 
 def generate_spec():
     """Generate OpenAPI spec from Flask app."""
-    # Create app with test config (no actual server needed)
+    # Create app with default config (no actual server needed)
     config = Config()
     app = create_app(config)
 
@@ -34,7 +41,10 @@ def generate_spec():
         if response.status_code == 200:
             return response.get_json()
         else:
-            raise RuntimeError(f"Failed to get spec: HTTP {response.status_code}")
+            error_msg = f"Failed to get spec from /apispec.json: HTTP {response.status_code}"
+            if response.data:
+                error_msg += f"\nResponse: {response.data.decode('utf-8')[:200]}"
+            raise RuntimeError(error_msg)
 
 
 if __name__ == "__main__":

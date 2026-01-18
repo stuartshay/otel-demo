@@ -52,11 +52,18 @@ if [ "$GENERATE_FROM_CODE" = true ]; then
     fi
 
     # Generate spec from code
-    if python3 "$SCRIPT_DIR/generate-spec-from-code.py" > "$TEMP_SPEC" 2>/dev/null; then
+    PYTHON_ERROR_LOG=$(mktemp)
+    if python3 "$SCRIPT_DIR/generate-spec-from-code.py" > "$TEMP_SPEC" 2>"$PYTHON_ERROR_LOG"; then
         echo -e "${GREEN}✓ Spec generated from code successfully${NC}"
+        rm -f "$PYTHON_ERROR_LOG"
     else
         echo -e "${RED}✗ Failed to generate spec from code${NC}"
         echo -e "${YELLOW}Tip: Make sure dependencies are installed (pip install -r requirements.txt)${NC}"
+        if [ -s "$PYTHON_ERROR_LOG" ]; then
+            echo -e "${YELLOW}Error output from generate-spec-from-code.py:${NC}"
+            cat "$PYTHON_ERROR_LOG"
+        fi
+        rm -f "$PYTHON_ERROR_LOG"
         rm -f "$TEMP_SPEC"
         exit 1
     fi
