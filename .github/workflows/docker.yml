@@ -303,7 +303,6 @@ jobs:
           echo "Updated package.json to version: $DOCKER_VERSION"
 
       - name: Publish to npm
-        if: env.NPM_TOKEN != ''
         run: |
           cd packages/otel-types
           npm publish --access public
