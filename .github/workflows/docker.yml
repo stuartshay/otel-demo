@@ -232,7 +232,7 @@ jobs:
           fi
 
           # Check for type generation script changes
-          if echo "$CHANGED_FILES" | grep -q "scripts/generate-"; then
+          if echo "$CHANGED_FILES" | grep -q "^scripts/generate-"; then
             echo "✓ Type generation scripts changed"
             SHOULD_PUBLISH=true
           fi
@@ -244,7 +244,7 @@ jobs:
           fi
 
           # Check for workflow changes that affect type generation
-          if echo "$CHANGED_FILES" | grep -q ".github/workflows/docker.yml"; then
+          if echo "$CHANGED_FILES" | grep -Fq ".github/workflows/docker.yml"; then
             echo "✓ Workflow changed"
             SHOULD_PUBLISH=true
           fi

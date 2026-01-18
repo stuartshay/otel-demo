@@ -1,6 +1,6 @@
 {
     "name": "@stuartshay/otel-types",
-    "version": "1.0.53",
+    "version": "1.0.0",
     "description": "TypeScript types for otel-demo API - Auto-generated from OpenAPI specification",
     "main": "index.d.ts",
     "types": "index.d.ts",
