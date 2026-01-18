@@ -1,0 +1,32 @@
+{
+  "name": "@stuartshay/otel-types",
+  "version": "1.0.0",
+  "description": "TypeScript types for otel-demo API - Auto-generated from OpenAPI specification",
+  "main": "index.d.ts",
+  "types": "index.d.ts",
+  "files": [
+    "index.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "prepublishOnly": "echo 'Types should be generated before publishing'"
+  },
+  "keywords": [
+    "otel-demo",
+    "opentelemetry",
+    "typescript",
+    "types",
+    "api"
+  ],
+  "author": "Stuart Shay",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stuartshay/otel-demo.git",
+    "directory": "packages/otel-types"
+  },
+  "homepage": "https://github.com/stuartshay/otel-demo/tree/main/packages/otel-types",
+  "publishConfig": {
+    "access": "public"
+  }
+}

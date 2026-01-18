@@ -1,0 +1,5 @@
+# Only include the generated types and README
+*
+!index.d.ts
+!README.md
+!package.json
