@@ -3,6 +3,7 @@
 [![CI](https://github.com/stuartshay/otel-demo/actions/workflows/lint.yml/badge.svg)](https://github.com/stuartshay/otel-demo/actions/workflows/lint.yml)
 [![Docker](https://github.com/stuartshay/otel-demo/actions/workflows/docker.yml/badge.svg)](https://github.com/stuartshay/otel-demo/actions/workflows/docker.yml)
 [![Docker Hub](https://img.shields.io/badge/Docker%20Hub-stuartshay%2Fotel--demo-blue?logo=docker)](https://hub.docker.com/repository/docker/stuartshay/otel-demo)
+[![npm version](https://img.shields.io/npm/v/@stuartshay/otel-types.svg)](https://www.npmjs.com/package/@stuartshay/otel-types)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
