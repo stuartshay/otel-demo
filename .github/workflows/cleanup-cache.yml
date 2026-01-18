@@ -1,0 +1,159 @@
+name: Cleanup Build Caches
+
+on:
+  # Run weekly on Sundays at 00:00 UTC
+  schedule:
+    - cron: '0 0 * * 0'
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      max_age_days:
+        description: 'Delete caches older than N days'
+        required: false
+        default: '7'
+        type: string
+
+jobs:
+  cleanup:
+    name: Cleanup Old Caches
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write  # Required to delete caches
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup environment
+        id: setup
+        run: |
+          # Set max age (use input or default to 7 days)
+          MAX_AGE_DAYS="${{ github.event.inputs.max_age_days }}"
+          if [ -z "$MAX_AGE_DAYS" ]; then
+            MAX_AGE_DAYS=7
+          fi
+          echo "max_age_days=${MAX_AGE_DAYS}" >> $GITHUB_OUTPUT
+
+          # Calculate cutoff timestamp (N days ago)
+          CUTOFF_DATE=$(date -u -d "${MAX_AGE_DAYS} days ago" '+%Y-%m-%dT%H:%M:%SZ')
+          echo "cutoff_date=${CUTOFF_DATE}" >> $GITHUB_OUTPUT
+          echo "Deleting caches older than ${CUTOFF_DATE} (${MAX_AGE_DAYS} days)"
+
+      - name: Cleanup GitHub Actions caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CUTOFF_DATE: ${{ steps.setup.outputs.cutoff_date }}
+        run: |
+          echo "=== Cleaning up GitHub Actions caches ==="
+
+          # List all caches
+          CACHES=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${REPO}/actions/caches" \
+            --jq '.actions_caches[]')
+
+          if [ -z "$CACHES" ]; then
+            echo "No caches found"
+            exit 0
+          fi
+
+          # Get cache IDs older than cutoff date
+          CACHE_IDS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${REPO}/actions/caches" \
+            --jq ".actions_caches[] | select(.created_at < \"${CUTOFF_DATE}\") | .id")
+
+          if [ -z "$CACHE_IDS" ]; then
+            echo "No old caches to delete"
+            exit 0
+          fi
+
+          DELETED_COUNT=0
+          TOTAL_SIZE=0
+
+          # Delete each old cache
+          for CACHE_ID in $CACHE_IDS; do
+            # Get cache details before deletion
+            CACHE_INFO=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/${REPO}/actions/caches/${CACHE_ID}")
+
+            CACHE_KEY=$(echo "$CACHE_INFO" | jq -r '.key')
+            CACHE_SIZE=$(echo "$CACHE_INFO" | jq -r '.size_in_bytes')
+            CACHE_DATE=$(echo "$CACHE_INFO" | jq -r '.created_at')
+
+            echo "Deleting cache: $CACHE_KEY (${CACHE_SIZE} bytes, created ${CACHE_DATE})"
+
+            # Delete the cache
+            gh api \
+              --method DELETE \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/${REPO}/actions/caches/${CACHE_ID}" || echo "Failed to delete cache $CACHE_ID"
+
+            DELETED_COUNT=$((DELETED_COUNT + 1))
+            TOTAL_SIZE=$((TOTAL_SIZE + CACHE_SIZE))
+          done
+
+          # Convert bytes to MB
+          TOTAL_SIZE_MB=$((TOTAL_SIZE / 1024 / 1024))
+
+          echo ""
+          echo "=== Cleanup Summary ==="
+          echo "Deleted caches: ${DELETED_COUNT}"
+          echo "Space freed: ${TOTAL_SIZE_MB} MB"
+
+      - name: Display remaining caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo ""
+          echo "=== Remaining Caches ==="
+
+          CACHE_LIST=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${REPO}/actions/caches" \
+            --jq '.actions_caches[] | "\(.key) - \(.size_in_bytes / 1024 / 1024 | floor)MB - \(.created_at)"')
+
+          if [ -z "$CACHE_LIST" ]; then
+            echo "No caches remaining"
+          else
+            echo "$CACHE_LIST"
+
+            TOTAL=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/${REPO}/actions/caches" \
+              --jq '.actions_caches | map(.size_in_bytes) | add // 0')
+
+            TOTAL_MB=$((TOTAL / 1024 / 1024))
+            echo ""
+            echo "Total cache size: ${TOTAL_MB} MB"
+          fi
+
+      - name: Cleanup Docker registry cache
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        run: |
+          echo ""
+          echo "=== Docker Registry Cache ==="
+          echo "ℹ️  Docker Hub registry cache (stuartshay/otel-demo:buildcache) should be"
+          echo "   managed through Docker Hub retention policies or manual deletion."
+          echo "   GitHub Actions cannot automatically delete Docker Hub tags."
+          echo ""
+          echo "To manually clean up:"
+          echo "1. Visit: https://hub.docker.com/r/stuartshay/otel-demo/tags"
+          echo "2. Delete the 'buildcache' tag if needed"
+
+      - name: Summary
+        run: |
+          echo ""
+          echo "✅ Cache cleanup completed"
+          echo "📊 Check the logs above for details"
+          echo ""
+          echo "Next scheduled run: Next Sunday at 00:00 UTC"
