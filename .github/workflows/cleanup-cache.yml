@@ -59,12 +59,12 @@ jobs:
             exit 0
           fi
 
-          # Get cache IDs older than cutoff date
+          # Get cache IDs older than cutoff date (based on last access time)
           CACHE_IDS=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "/repos/${REPO}/actions/caches" \
-            --jq ".actions_caches[] | select(.created_at < \"${CUTOFF_DATE}\") | .id")
+            --jq ".actions_caches[] | select(.last_accessed_at < \"${CUTOFF_DATE}\") | .id")
 
           if [ -z "$CACHE_IDS" ]; then
             echo "No old caches to delete"
@@ -84,9 +84,10 @@ jobs:
 
             CACHE_KEY=$(echo "$CACHE_INFO" | jq -r '.key')
             CACHE_SIZE=$(echo "$CACHE_INFO" | jq -r '.size_in_bytes')
-            CACHE_DATE=$(echo "$CACHE_INFO" | jq -r '.created_at')
+            CACHE_CREATED=$(echo "$CACHE_INFO" | jq -r '.created_at')
+            CACHE_ACCESSED=$(echo "$CACHE_INFO" | jq -r '.last_accessed_at')
 
-            echo "Deleting cache: $CACHE_KEY (${CACHE_SIZE} bytes, created ${CACHE_DATE})"
+            echo "Deleting cache: $CACHE_KEY (${CACHE_SIZE} bytes, created ${CACHE_CREATED}, last used ${CACHE_ACCESSED})"
 
             # Delete the cache
             gh api \
