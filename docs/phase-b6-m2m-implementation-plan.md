@@ -39,39 +39,30 @@ This document outlines the implementation plan for auth observability (B.6) and 
 
 ## Part 1: Auth Observability Dashboard (B.6)
 
-### 1.1 Enable oauth2-proxy Metrics
+### Current Infrastructure Status
 
-**Repository:** k8s-gitops
+| Component | Status | Details |
+|-----------|--------|---------|
+| oauth2-proxy metrics port | ✅ Already configured | `deployment.yaml` port 44180 |
+| oauth2-proxy service metrics | ✅ Already configured | `service.yaml` port 44180 |
+| Prometheus (kube-prometheus-stack) | ✅ Running | `monitoring` namespace |
+| Prometheus NodePort | ✅ Exposed | `192.168.1.160:30090` |
+| ServiceMonitor CRD | ✅ Available | Prometheus Operator installed |
+| External Grafana | ✅ Running | Node-5 (`192.168.1.175:3001`) |
+| Dashboard storage | ✅ Git-tracked | `homeassistant/infrastructure/grafana/dashboards/` |
 
-oauth2-proxy exposes Prometheus metrics on port 44180 by default.
+### 1.1 oauth2-proxy Metrics (Already Configured)
 
-```yaml
-# infrastructure/auth/oauth2-proxy/deployment.yaml (update)
-spec:
-  template:
-    spec:
-      containers:
-        - name: oauth2-proxy
-          ports:
-            - containerPort: 4180
-              name: http
-            - containerPort: 44180
-              name: metrics
-```
+**Repository:** k8s-gitops (`infrastructure/auth/oauth2-proxy/`)
 
-```yaml
-# infrastructure/auth/oauth2-proxy/service.yaml (update)
-spec:
-  ports:
-    - name: http
-      port: 4180
-      targetPort: http
-    - name: metrics
-      port: 44180
-      targetPort: metrics
-```
+The metrics port is already configured in both deployment and service:
 
-### 1.2 Create ServiceMonitor
+- **Deployment:** Port 44180 exposed as `metrics`
+- **Service:** Port 44180 mapped to `metrics` target
+
+No changes needed to oauth2-proxy manifests.
+
+### 1.2 Create ServiceMonitor (Required)
 
 ```yaml
 # infrastructure/auth/oauth2-proxy/servicemonitor.yaml
@@ -161,16 +152,63 @@ data:
     }
 ```
 
-### 1.5 Implementation Checklist
+### 1.5 Add K8s Prometheus Datasource to Grafana (Required)
+
+Node-5 Grafana needs access to the K8s Prometheus to query oauth2-proxy metrics:
+
+**File:** `homeassistant/infrastructure/grafana/provisioning/datasources/prometheus.yml`
+
+```yaml
+apiVersion: 1
+
+datasources:
+  # Existing local Prometheus (Docker on Node-5)
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+
+  # NEW: K8s Prometheus (kube-prometheus-stack)
+  - name: Prometheus-K8s
+    type: prometheus
+    access: proxy
+    url: http://192.168.1.160:30090
+    isDefault: false
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+```
+
+### 1.6 Create Dashboard JSON (Required)
+
+**File:** `homeassistant/infrastructure/grafana/dashboards/oauth2-proxy.json`
+
+Dashboard will include:
+
+- Auth Success/Failure Rate (timeseries)
+- Login Events (24h stat)
+- Response Time p95 (gauge)
+- Request Rate by Path (table)
+- Error Rate by Code (pie chart)
+
+### 1.7 Implementation Checklist
 
 | Step | Task | Status |
 |------|------|--------|
-| 1.1 | Add metrics port to oauth2-proxy deployment | ❌ Not started |
-| 1.2 | Update oauth2-proxy service with metrics port | ❌ Not started |
+| 1.1 | oauth2-proxy deployment metrics port | ✅ Already configured |
+| 1.2 | oauth2-proxy service metrics port | ✅ Already configured |
 | 1.3 | Create ServiceMonitor for Prometheus scraping | ❌ Not started |
-| 1.4 | Create Grafana dashboard ConfigMap | ❌ Not started |
-| 1.5 | Verify metrics in Prometheus targets | ❌ Not started |
-| 1.6 | Import and test dashboard in Grafana | ❌ Not started |
+| 1.4 | Add K8s Prometheus datasource to Grafana | ❌ Not started |
+| 1.5 | Create `oauth2-proxy.json` dashboard | ❌ Not started |
+| 1.6 | Deploy Grafana config and restart | ❌ Not started |
+| 1.7 | Verify metrics in Prometheus targets | ❌ Not started |
+| 1.8 | Test dashboard in Grafana | ❌ Not started |
 
 ---
 
