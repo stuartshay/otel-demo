@@ -1,6 +1,9 @@
 # Flask web framework
 flask==3.0.3
 
+# Flask CORS support
+flask-cors==5.0.0
+
 # Swagger/OpenAPI documentation
 flasgger==0.9.7.1
 
