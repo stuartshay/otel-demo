@@ -4,6 +4,7 @@ Flask extensions initialization.
 Centralizes the setup of Flask extensions including:
 - Swagger/OpenAPI documentation
 - Flask instrumentation
+- CORS configuration
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from flasgger import Swagger
+from flask_cors import CORS
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
 if TYPE_CHECKING:
@@ -26,6 +28,16 @@ def init_extensions(flask_app: Flask, config: Config) -> None:
         flask_app: Flask application instance.
         config: Application configuration.
     """
+    # Configure CORS to allow frontend access
+    if config.cors_origins:
+        CORS(
+            flask_app,
+            resources={r"/*": {"origins": list(config.cors_origins)}},
+            allow_headers=["Content-Type", "Authorization"],
+            expose_headers=["X-Trace-Id"],
+            supports_credentials=True,
+        )
+
     # Instrument Flask for tracing
     FlaskInstrumentor().instrument_app(flask_app)
 

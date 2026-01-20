@@ -80,6 +80,9 @@ class Config:
     cognito_client_id: str = ""
     oauth2_enabled: bool = False
 
+    # CORS settings
+    cors_origins: tuple[str, ...] = ()
+
     @classmethod
     def from_env(cls) -> Config:
         """Create configuration from environment variables.
@@ -102,6 +105,10 @@ class Config:
         # Parse schemes as tuple
         schemes_str = os.getenv("SWAGGER_SCHEMES", "http")
         swagger_schemes = tuple(s.strip() for s in schemes_str.split(","))
+
+        # Parse CORS origins as tuple
+        cors_origins_str = os.getenv("CORS_ORIGINS", "")
+        cors_origins = tuple(s.strip() for s in cors_origins_str.split(",") if s.strip())
 
         # Parse PORT with validation
         port_env = os.getenv("PORT", "8080")
@@ -165,6 +172,8 @@ class Config:
             cognito_domain=os.getenv("COGNITO_DOMAIN", ""),
             cognito_client_id=os.getenv("COGNITO_CLIENT_ID", ""),
             oauth2_enabled=os.getenv("OAUTH2_ENABLED", "false").lower() == "true",
+            # CORS
+            cors_origins=cors_origins,
         )
 
     def validate_database(self) -> None:
