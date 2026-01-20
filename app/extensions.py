@@ -29,13 +29,14 @@ def init_extensions(flask_app: Flask, config: Config) -> None:
         config: Application configuration.
     """
     # Configure CORS to allow frontend access
-    CORS(
-        flask_app,
-        resources={r"/*": {"origins": ["https://ui.lab.informationcart.com"]}},
-        allow_headers=["Content-Type", "Authorization"],
-        expose_headers=["X-Trace-Id"],
-        supports_credentials=True,
-    )
+    if config.cors_origins:
+        CORS(
+            flask_app,
+            resources={r"/*": {"origins": list(config.cors_origins)}},
+            allow_headers=["Content-Type", "Authorization"],
+            expose_headers=["X-Trace-Id"],
+            supports_credentials=True,
+        )
 
     # Instrument Flask for tracing
     FlaskInstrumentor().instrument_app(flask_app)
