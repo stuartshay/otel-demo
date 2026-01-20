@@ -17,8 +17,13 @@ This app demonstrates:
 import logging
 import os
 
+from dotenv import load_dotenv
+
 from app import create_app
 from app.config import Config
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Create application with configuration from environment
 config = Config.from_env()
