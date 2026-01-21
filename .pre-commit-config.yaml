@@ -56,3 +56,8 @@ repos:
         additional_dependencies:
           - types-Flask
         args: [--ignore-missing-imports]
+
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.408
+    hooks:
+      - id: pyright
