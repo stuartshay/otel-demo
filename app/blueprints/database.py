@@ -259,6 +259,19 @@ def db_locations():
             span.record_exception(e)
             span.set_status(trace.Status(trace.StatusCode.ERROR, "Database query failed"))
             logger.error(f"Database query failed: {e}", exc_info=True)
+
+            # Check if it's a table not found error
+            error_msg = str(e)
+            if "relation" in error_msg and "does not exist" in error_msg:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "error": "The 'locations' table does not exist in this database. This endpoint requires an owntracks database schema.",
+                        "database": current_app.config.get("APP_CONFIG").db_name,
+                        "trace_id": format(span.get_span_context().trace_id, "032x"),
+                    }
+                ), 404
+
             return jsonify(
                 {
                     "status": "error",

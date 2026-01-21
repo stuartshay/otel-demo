@@ -181,8 +181,40 @@ class TestDatabaseService:
         from datetime import datetime
 
         mock_cursor.fetchall.return_value = [
-            (1, "iphone", "SS", 40.7128, -74.0060, 10, 100, 0, 85, datetime(2026, 1, 15, 12, 0)),
-            (2, "iphone", "SS", 40.7129, -74.0061, 15, 101, 5, 80, datetime(2026, 1, 15, 12, 5)),
+            (
+                1,
+                "iphone",
+                "SS",
+                40.7128,
+                -74.0060,
+                10,
+                100,
+                0,
+                85,
+                "2",
+                "w",
+                "t",
+                datetime(2026, 1, 15, 12, 0),
+                datetime(2026, 1, 15, 12, 0),
+                '{"test": "data"}',
+            ),
+            (
+                2,
+                "iphone",
+                "SS",
+                40.7129,
+                -74.0061,
+                15,
+                101,
+                5,
+                80,
+                "1",
+                "m",
+                "p",
+                datetime(2026, 1, 15, 12, 5),
+                datetime(2026, 1, 15, 12, 5),
+                '{"test": "data2"}',
+            ),
         ]
         mock_pool_class.return_value = mock_pool
 
@@ -264,6 +296,53 @@ class TestDatabaseService:
         call_args = mock_cursor.execute.call_args
         assert "ORDER BY created_at" in call_args[0][0]
 
+    @patch("app.services.database.pool.ThreadedConnectionPool")
+    def test_initialize_fail_fast_on_connection_error(
+        self, mock_pool_class: MagicMock, mock_config: Config
+    ) -> None:
+        """Test that initialize fails fast on connection errors."""
+        from psycopg2 import OperationalError
+
+        # Make the pool creation raise an exception
+        mock_pool_class.side_effect = OperationalError("Connection refused")
+
+        service = DatabaseService(mock_config)
+
+        # Should raise OperationalError immediately (fail-fast)
+        with pytest.raises(OperationalError, match="Connection refused"):
+            service.initialize()
+
+    @patch("app.services.database.pool.ThreadedConnectionPool")
+    def test_close_db_service_function(
+        self, mock_pool_class: MagicMock, mock_config: Config
+    ) -> None:
+        """Test that close_db_service closes the global database pool."""
+        from app.services import database
+
+        mock_pool = MagicMock()
+        mock_pool_class.return_value = mock_pool
+
+        # Initialize the global service
+        service = DatabaseService(mock_config)
+        service.initialize()
+        database._db_service = service
+
+        # Close via the module function
+        database.close_db_service()
+
+        # Verify pool was closed
+        mock_pool.closeall.assert_called_once()
+
+    def test_close_db_service_handles_none(self) -> None:
+        """Test that close_db_service handles None gracefully."""
+        from app.services import database
+
+        # Set service to None
+        database._db_service = None
+
+        # Should not raise
+        database.close_db_service()
+
 
 class TestLocationRecord:
     """Test cases for LocationRecord dataclass."""
@@ -280,7 +359,12 @@ class TestLocationRecord:
             altitude=100,
             velocity=0,
             battery=85,
+            battery_status="2",
+            connection_type="w",
+            trigger="t",
+            timestamp="2026-01-15T12:00:00",
             created_at="2026-01-15T12:00:00",
+            raw_payload='{"test": "data"}',
         )
         result = record.to_dict()
 
@@ -301,7 +385,12 @@ class TestLocationRecord:
             altitude=None,
             velocity=None,
             battery=None,
+            battery_status=None,
+            connection_type=None,
+            trigger=None,
+            timestamp=None,
             created_at=None,
+            raw_payload=None,
         )
         result = record.to_dict()
 

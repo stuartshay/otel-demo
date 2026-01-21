@@ -46,22 +46,14 @@ def create_app(config: Config | None = None) -> Flask:
     # Register blueprints
     _register_blueprints(flask_app)
 
-    # Register teardown handler for database pool cleanup
-    @flask_app.teardown_appcontext
-    def close_db_pool(exception: BaseException | None) -> None:  # noqa: ARG001
-        """Close the database connection pool on app teardown."""
-        try:
-            from app.services.database import get_db_service
+    # Register database pool cleanup on actual application shutdown
+    # using atexit to avoid closing pool after every request (which
+    # teardown_appcontext would do). This preserves connection pooling.
+    import atexit
 
-            db_service = get_db_service()
-            if hasattr(db_service, "close") and callable(db_service.close):
-                db_service.close()
-        except RuntimeError:
-            # Database service not initialized, nothing to clean up
-            pass
-        except Exception:
-            # Swallow exceptions during shutdown to avoid masking original errors
-            pass
+    from app.services.database import close_db_service
+
+    atexit.register(close_db_service)
 
     return flask_app
 

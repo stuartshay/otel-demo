@@ -37,7 +37,12 @@ class LocationRecord:
     altitude: float | None
     velocity: int | None
     battery: int | None
+    battery_status: str | None
+    connection_type: str | None
+    trigger: str | None
+    timestamp: str | None
     created_at: str | None
+    raw_payload: str | None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -51,7 +56,12 @@ class LocationRecord:
             "altitude": self.altitude,
             "velocity": self.velocity,
             "battery": self.battery,
+            "battery_status": self.battery_status,
+            "connection_type": self.connection_type,
+            "trigger": self.trigger,
+            "timestamp": self.timestamp,
             "created_at": self.created_at,
+            "raw_payload": self.raw_payload,
         }
 
 
@@ -186,6 +196,7 @@ class DatabaseService:
         offset = max(offset, 0)
 
         allowed_sorts = {
+            "timestamp": "timestamp",
             "created_at": "created_at",
             "latitude": "latitude",
             "longitude": "longitude",
@@ -193,7 +204,9 @@ class DatabaseService:
             "altitude": "altitude",
             "velocity": "velocity",
             "battery": "battery",
+            "battery_status": "battery_status",
         }
+        # Default to created_at to avoid unstable ordering when timestamp may be NULL
         sort_column = allowed_sorts.get(sort, "created_at")
 
         order = "DESC" if order.upper() not in ("ASC", "DESC") else order.upper()
@@ -202,8 +215,9 @@ class DatabaseService:
             if device_id:
                 query = f"""
                     SELECT id, device_id, tid, latitude, longitude,
-                           accuracy, altitude, velocity, battery, created_at
-                    FROM locations
+                           accuracy, altitude, velocity, battery, battery_status,
+                           connection_type, trigger, timestamp, created_at, raw_payload
+                    FROM public.locations
                     WHERE device_id = %s
                     ORDER BY {sort_column} {order}
                     LIMIT %s OFFSET %s
@@ -212,8 +226,9 @@ class DatabaseService:
             else:
                 query = f"""
                     SELECT id, device_id, tid, latitude, longitude,
-                           accuracy, altitude, velocity, battery, created_at
-                    FROM locations
+                           accuracy, altitude, velocity, battery, battery_status,
+                           connection_type, trigger, timestamp, created_at, raw_payload
+                    FROM public.locations
                     ORDER BY {sort_column} {order}
                     LIMIT %s OFFSET %s
                 """
@@ -247,7 +262,12 @@ class DatabaseService:
                 altitude=row[6],
                 velocity=row[7],
                 battery=row[8],
-                created_at=row[9].isoformat() if row[9] else None,
+                battery_status=row[9],
+                connection_type=row[10],
+                trigger=row[11],
+                timestamp=row[12].isoformat() if row[12] else None,
+                created_at=row[13].isoformat() if row[13] else None,
+                raw_payload=row[14],
             )
             for row in rows
         ]
@@ -283,15 +303,29 @@ def init_db_service(config: Config) -> DatabaseService:
 
     Returns:
         The initialized DatabaseService.
+
+    Raises:
+        RuntimeError: If database credentials are missing.
+        Exception: If database connection fails.
     """
     global _db_service
     with _db_service_lock:
         if _db_service is not None:
             return _db_service
         _db_service = DatabaseService(config)
-        try:
-            _db_service.initialize()
-        except Exception as e:
-            logger.warning(f"Database pool initialization failed: {e}")
-            # Don't fail app startup if DB is unavailable
+        _db_service.initialize()  # Let exceptions propagate
         return _db_service
+
+
+def close_db_service() -> None:
+    """Close the global database service and release resources.
+
+    Thread-safe cleanup that closes the connection pool if initialized.
+    Safe to call multiple times.
+    """
+    global _db_service
+    with _db_service_lock:
+        if _db_service is not None:
+            logger.info("Closing database connection pool")
+            _db_service.close()
+            _db_service = None

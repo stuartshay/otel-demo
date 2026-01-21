@@ -81,7 +81,12 @@ class TestDatabaseLocationsEndpoint:
                 altitude=100,
                 velocity=0,
                 battery=85,
+                battery_status="2",
+                connection_type="w",
+                trigger="t",
+                timestamp="2026-01-15T12:00:00",
                 created_at="2026-01-15T12:00:00",
+                raw_payload='{"test": "data"}',
             )
         ]
         mock_get_service.return_value = mock_service
@@ -182,6 +187,26 @@ class TestDatabaseLocationsEndpoint:
         assert response.status_code == 500
         data = response.get_json()
         assert data["status"] == "error"
+        assert "trace_id" in data
+
+    @patch("app.blueprints.database._get_or_init_db_service")
+    def test_db_locations_table_not_found(
+        self, mock_get_service: MagicMock, client: FlaskClient
+    ) -> None:
+        """Test that /db/locations returns 404 when table doesn't exist."""
+        mock_service = MagicMock()
+        # Simulate PostgreSQL error for missing table
+        mock_service.get_locations.side_effect = Exception('relation "locations" does not exist')
+        mock_get_service.return_value = mock_service
+
+        response = client.get("/db/locations")
+
+        assert response.status_code == 404
+        data = response.get_json()
+        assert data["status"] == "error"
+        assert "locations" in data["error"]
+        assert "table" in data["error"].lower()
+        assert "database" in data
         assert "trace_id" in data
 
     @patch("app.blueprints.database._get_or_init_db_service")

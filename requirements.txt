@@ -25,3 +25,6 @@ opentelemetry-instrumentation-psycopg2==0.48b0
 
 # Production WSGI server
 gunicorn==23.0.0
+
+# Environment variable management
+python-dotenv==1.0.1
