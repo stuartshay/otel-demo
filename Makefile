@@ -222,16 +222,19 @@ db-test: ## Test database connection
 	@set -a; . ./.env; set +a; \
 	. $(VENV_DIR)/bin/activate && \
 	python -c "from app.services.database import DatabaseService; from app.config import Config; \
-	config = Config.from_env(); db = DatabaseService(config); \
+	config = Config.from_env(); db = DatabaseService(config); db.initialize(); \
 	print('✓ Database connection successful') if db.health_check() else print('✗ Database connection failed')"
 
-db-locations: ## Show location count in database
-	@echo "$(YELLOW)Querying locations...$(NC)"
+db-locations: ## Show table count in database
+	@echo "$(YELLOW)Querying database tables...$(NC)"
 	@set -a; . ./.env; set +a; \
 	. $(VENV_DIR)/bin/activate && \
-	python -c "from app.services.database import DatabaseService; from app.config import Config; \
-	config = Config.from_env(); db = DatabaseService(config); \
-	locations = db.get_locations(); print(f'Total locations: {locations[\"total\"]}')"
+	python -c "import psycopg2; \
+	conn = psycopg2.connect(host='$${PGBOUNCER_HOST}', port='$${PGBOUNCER_PORT}', dbname='$${POSTGRES_DB}', user='$${POSTGRES_USER}', password='$${POSTGRES_PASSWORD}'); \
+	cur = conn.cursor(); \
+	cur.execute(\"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'\"); \
+	count = cur.fetchone()[0]; \
+	print(f'Total tables in $${POSTGRES_DB}: {count}')"
 
 # =============================================================================
 # Docker
