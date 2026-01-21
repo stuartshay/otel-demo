@@ -280,7 +280,12 @@ class TestLocationRecord:
             altitude=100,
             velocity=0,
             battery=85,
+            battery_status="2",
+            connection_type="w",
+            trigger="t",
+            timestamp="2026-01-15T12:00:00",
             created_at="2026-01-15T12:00:00",
+            raw_payload='{"test": "data"}',
         )
         result = record.to_dict()
 
@@ -301,7 +306,12 @@ class TestLocationRecord:
             altitude=None,
             velocity=None,
             battery=None,
+            battery_status=None,
+            connection_type=None,
+            trigger=None,
+            timestamp=None,
             created_at=None,
+            raw_payload=None,
         )
         result = record.to_dict()
 
