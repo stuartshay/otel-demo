@@ -263,11 +263,13 @@ def db_locations():
             # Check if it's a table not found error
             error_msg = str(e)
             if "relation" in error_msg and "does not exist" in error_msg:
+                app_config = current_app.config.get("APP_CONFIG")
+                db_name = app_config.db_name if app_config else "unknown"
                 return jsonify(
                     {
                         "status": "error",
                         "error": "The 'locations' table does not exist in this database. This endpoint requires an owntracks database schema.",
-                        "database": current_app.config.get("APP_CONFIG").db_name,
+                        "database": db_name,
                         "trace_id": format(span.get_span_context().trace_id, "032x"),
                     }
                 ), 404
