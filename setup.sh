@@ -70,7 +70,8 @@ echo ""
 echo -e "${BLUE}Step 5: Setting up pre-commit hooks...${NC}"
 if [[ -d ".git" ]]; then
     pre-commit install
-    echo -e "${GREEN}✓ Pre-commit hooks installed${NC}"
+    pre-commit install --hook-type pre-push
+    echo -e "${GREEN}✓ Pre-commit hooks installed (pre-commit + pre-push)${NC}"
 else
     echo -e "${YELLOW}Not a git repository - skipping pre-commit setup${NC}"
 fi
