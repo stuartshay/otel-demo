@@ -76,8 +76,15 @@ start: ## Start development server (port 8080)
 		exit 1; \
 	fi
 	@if [ -f $(PID_FILE) ]; then \
-		echo "$(RED)✗ Server already running (PID: $$(cat $(PID_FILE)))$(NC)"; \
-		exit 1; \
+		echo "$(YELLOW)⚠ Stopping existing server (PID: $$(cat $(PID_FILE)))...$(NC)"; \
+		kill $$(cat $(PID_FILE)) 2>/dev/null || true; \
+		rm -f $(PID_FILE); \
+		sleep 1; \
+	fi
+	@if lsof -i :8080 -t >/dev/null 2>&1; then \
+		echo "$(YELLOW)⚠ Killing process on port 8080...$(NC)"; \
+		kill $$(lsof -i :8080 -t) 2>/dev/null || true; \
+		sleep 1; \
 	fi
 	@mkdir -p logs
 	@echo "$(YELLOW)Loading environment variables from .env...$(NC)"
