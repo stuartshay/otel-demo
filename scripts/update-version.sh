@@ -11,6 +11,13 @@ if [ -z "$1" ]; then
 fi
 
 NEW_VERSION="$1"
+
+# Validate version format (semantic versioning: MAJOR.MINOR.PATCH)
+if ! [[ "${NEW_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Error: invalid version '${NEW_VERSION}'. Expected format: MAJOR.MINOR.PATCH (e.g., 1.0.71)"
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
