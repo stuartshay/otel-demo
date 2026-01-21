@@ -283,15 +283,15 @@ def init_db_service(config: Config) -> DatabaseService:
 
     Returns:
         The initialized DatabaseService.
+
+    Raises:
+        RuntimeError: If database credentials are missing.
+        Exception: If database connection fails.
     """
     global _db_service
     with _db_service_lock:
         if _db_service is not None:
             return _db_service
         _db_service = DatabaseService(config)
-        try:
-            _db_service.initialize()
-        except Exception as e:
-            logger.warning(f"Database pool initialization failed: {e}")
-            # Don't fail app startup if DB is unavailable
+        _db_service.initialize()  # Let exceptions propagate
         return _db_service
