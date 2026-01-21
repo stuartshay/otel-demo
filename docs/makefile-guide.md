@@ -31,7 +31,7 @@ make stop
 | `make start-fg` | Start server in foreground | Debugging |
 | `make stop` | Stop running server | Cleanup |
 | `make restart` | Stop and start server | After config changes |
-| `make reload` | Graceful reload (HUP signal) | Code changes |
+| `make reload` | Stop and start server (full restart) | Code changes |
 | `make status` | Check if server is running | Health check |
 | `make dev` | Alias for `make start` | Quick start |
 

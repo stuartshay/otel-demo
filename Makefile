@@ -71,6 +71,10 @@ dev: start ## Alias for start (run in development mode)
 
 start: ## Start development server (port 8080)
 	@echo "$(YELLOW)Starting otel-demo server...$(NC)"
+	@if [ ! -f .env ]; then \
+		echo "$(RED)✗ .env file not found. Run './setup.sh' to create it.$(NC)"; \
+		exit 1; \
+	fi
 	@if [ -f $(PID_FILE) ]; then \
 		echo "$(RED)✗ Server already running (PID: $$(cat $(PID_FILE)))$(NC)"; \
 		exit 1; \
