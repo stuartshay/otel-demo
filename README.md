@@ -34,6 +34,8 @@ This demo app is designed to test and validate OpenTelemetry Collector deploymen
 | `/error` | Error recording demo |
 | `/slow` | Slow operation demo (0.5-2s delay) |
 | `/metrics` | Observability configuration info |
+| `/db/status` | Database connection status and info |
+| `/db/locations` | Query locations from PostgreSQL (with pagination) |
 | `/apidocs` | Swagger UI documentation |
 | `/apispec.json` | OpenAPI specification |
 
@@ -47,18 +49,63 @@ This demo app is designed to test and validate OpenTelemetry Collector deploymen
 | `OTEL_ENVIRONMENT` | `homelab` | Deployment environment |
 | `APP_VERSION` | `1.0.0` | Application version |
 | `PORT` | `8080` | HTTP server port |
+| `POSTGRES_USER` | `development` | PostgreSQL username |
+| `POSTGRES_PASSWORD` | `development` | PostgreSQL password |
+| `POSTGRES_DB` | `opendata` | PostgreSQL database name |
+| `PGBOUNCER_HOST` | `192.168.1.175` | PgBouncer connection pooler host |
+| `PGBOUNCER_PORT` | `6432` | PgBouncer port (use for pooled connections) |
+
+## Quick Start
+
+```bash
+# Using Makefile (recommended)
+make setup          # Set up venv and install dependencies
+make start          # Start server (loads .env automatically)
+make logs           # View logs
+make stop           # Stop server
+
+# Or manually
+pip install -r requirements.txt
+python run.py       # With .env file for configuration
+```
+
+See [Makefile Usage Guide](docs/makefile-guide.md) for all available commands.
 
 ## Running Locally
+
+### Using Makefile
+
+```bash
+# Start development server
+make start          # Starts on port 8080, loads .env
+
+# Check status
+make status         # View server PID and endpoints
+make health         # Test /health endpoint
+make db-status      # Test /db/status endpoint
+
+# View logs
+make logs           # Tail logs in real-time
+
+# Stop server
+make stop
+
+# Restart after changes
+make restart
+```
+
+### Manual Start
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# Run with default settings (traces to localhost:4317)
-python app.py
+# Run with .env file loaded
+source venv/bin/activate
+python run.py
 
 # Or with custom OTel endpoint
-OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317 python app.py
+OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317 python run.py
 ```
 
 ## Docker
