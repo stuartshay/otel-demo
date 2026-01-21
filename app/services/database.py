@@ -206,7 +206,8 @@ class DatabaseService:
             "battery": "battery",
             "battery_status": "battery_status",
         }
-        sort_column = allowed_sorts.get(sort, "timestamp")
+        # Default to created_at to avoid unstable ordering when timestamp may be NULL
+        sort_column = allowed_sorts.get(sort, "created_at")
 
         order = "DESC" if order.upper() not in ("ASC", "DESC") else order.upper()
 
@@ -314,3 +315,17 @@ def init_db_service(config: Config) -> DatabaseService:
         _db_service = DatabaseService(config)
         _db_service.initialize()  # Let exceptions propagate
         return _db_service
+
+
+def close_db_service() -> None:
+    """Close the global database service and release resources.
+
+    Thread-safe cleanup that closes the connection pool if initialized.
+    Safe to call multiple times.
+    """
+    global _db_service
+    with _db_service_lock:
+        if _db_service is not None:
+            logger.info("Closing database connection pool")
+            _db_service.close()
+            _db_service = None

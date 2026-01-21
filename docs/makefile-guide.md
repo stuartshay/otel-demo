@@ -108,7 +108,10 @@ make test-watch
 # Test database connection
 make db-test
 
-# Query location count
+# Query database table count
+make db-table-count
+
+# Query location records count
 make db-locations
 
 # Check database status endpoint

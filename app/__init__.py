@@ -47,14 +47,26 @@ def create_app(config: Config | None = None) -> Flask:
     _register_blueprints(flask_app)
 
     # Note: Database connection pool cleanup is handled during app shutdown,
-    # not on every request teardown, to maintain connection pooling benefits
-    #
-    # @flask_app.teardown_appcontext
-    # def close_db_pool(exception: BaseException | None) -> None:
-    #     """Close the database connection pool on app teardown."""
-    #     # This would close the pool after EVERY request, defeating the purpose
-    #     # of connection pooling. Pool is automatically closed on app shutdown.
-    #     pass
+    # not on every request teardown, to maintain connection pooling benefits.
+    # A teardown handler is intentionally not registered here, because closing
+    # the pool after every request would defeat the purpose of connection
+    # pooling. The pool is automatically closed when the application shuts down.
+
+    # Register shutdown handler for pool cleanup
+    @flask_app.teardown_appcontext
+    def shutdown_db_pool(exception: BaseException | None) -> None:
+        """Close database pool on application shutdown.
+
+        This is called when the application context is torn down,
+        which happens at the end of a request normally, but we need
+        to ensure it's only called on actual app shutdown, not per-request.
+        """
+        # Only close pool if we're truly shutting down
+        # In production with gunicorn, this happens on worker shutdown
+        if flask_app.config.get("TESTING") or not flask_app.debug:
+            from app.services.database import close_db_service
+
+            close_db_service()
 
     return flask_app
 

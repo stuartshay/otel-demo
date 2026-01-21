@@ -95,6 +95,10 @@ start: ## Start development server (port 8080)
 
 start-fg: ## Start server in foreground (for debugging)
 	@echo "$(YELLOW)Starting otel-demo server in foreground...$(NC)"
+	@if [ ! -f .env ]; then \
+		echo "$(RED)Error: .env file not found. Please create .env before starting server.$(NC)"; \
+		exit 1; \
+	fi
 	@echo "$(YELLOW)Loading environment variables from .env...$(NC)"
 	@set -a; . ./.env; set +a; . $(VENV_DIR)/bin/activate && python run.py
 
@@ -115,20 +119,9 @@ stop: ## Stop development server
 
 restart: stop start ## Restart development server
 
-reload: ## Reload server (graceful restart with gunicorn)
-	@echo "$(YELLOW)Reloading server...$(NC)"
-	@if [ -f $(PID_FILE) ]; then \
-		PID=$$(cat $(PID_FILE)); \
-		if ps -p $$PID > /dev/null 2>&1; then \
-			kill -HUP $$PID && echo "$(GREEN)✓ Server reloaded$(NC)"; \
-		else \
-			echo "$(RED)✗ Server not running$(NC)"; \
-			exit 1; \
-		fi; \
-	else \
-		echo "$(RED)✗ Server not running (no PID file)$(NC)"; \
-		exit 1; \
-	fi
+reload: ## Reload server (restart development server)
+	@echo "$(YELLOW)Reloading server (stop + start)...$(NC)"
+	@$(MAKE) restart
 
 status: ## Check server status
 	@if [ -f $(PID_FILE) ]; then \
@@ -225,8 +218,12 @@ db-test: ## Test database connection
 	config = Config.from_env(); db = DatabaseService(config); db.initialize(); \
 	print('✓ Database connection successful') if db.health_check() else print('✗ Database connection failed')"
 
-db-locations: ## Show table count in database
-	@echo "$(YELLOW)Querying database tables...$(NC)"
+db-table-count: ## Show table count in database
+	@echo "$(YELLOW)Querying database table count...$(NC)"
+	@if [ ! -f .env ]; then \
+		echo "$(RED)Error: .env file not found. Please create .env with database credentials.$(NC)"; \
+		exit 1; \
+	fi
 	@set -a; . ./.env; set +a; \
 	. $(VENV_DIR)/bin/activate && \
 	python -c "import psycopg2; \
@@ -235,6 +232,21 @@ db-locations: ## Show table count in database
 	cur.execute(\"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'\"); \
 	count = cur.fetchone()[0]; \
 	print(f'Total tables in $${POSTGRES_DB}: {count}')"
+
+db-locations: ## Query location records from database
+	@echo "$(YELLOW)Querying location records...$(NC)"
+	@if [ ! -f .env ]; then \
+		echo "$(RED)Error: .env file not found. Please create .env with database credentials.$(NC)"; \
+		exit 1; \
+	fi
+	@set -a; . ./.env; set +a; \
+	. $(VENV_DIR)/bin/activate && \
+	python -c "import psycopg2; \
+	conn = psycopg2.connect(host='$${PGBOUNCER_HOST}', port='$${PGBOUNCER_PORT}', dbname='$${POSTGRES_DB}', user='$${POSTGRES_USER}', password='$${POSTGRES_PASSWORD}'); \
+	cur = conn.cursor(); \
+	cur.execute(\"SELECT COUNT(*) FROM locations\"); \
+	count = cur.fetchone()[0]; \
+	print(f'Total location records in $${POSTGRES_DB}: {count}')"
 
 # =============================================================================
 # Docker
