@@ -1,0 +1,14 @@
+version: v1beta1
+plugins:
+  - name: python
+    out: app/proto
+    opt:
+      - paths=source_relative
+  - name: grpc_python
+    out: app/proto
+    opt:
+      - paths=source_relative
+  - name: pyi
+    out: app/proto
+    opt:
+      - paths=source_relative

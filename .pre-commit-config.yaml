@@ -15,6 +15,7 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
       - id: debug-statements
+        exclude: ^app/proto/
 
     # Markdown linting
   - repo: https://github.com/igorshubovych/markdownlint-cli
@@ -56,3 +57,9 @@ repos:
         additional_dependencies:
           - types-Flask
         args: [--ignore-missing-imports]
+        exclude: ^app/proto/
+
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.408
+    hooks:
+      - id: pyright

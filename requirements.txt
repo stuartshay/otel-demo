@@ -28,3 +28,11 @@ gunicorn==23.0.0
 
 # Environment variable management
 python-dotenv==1.0.1
+
+# gRPC client for otel-worker integration
+grpcio==1.62.0
+grpcio-tools==1.62.0
+protobuf==4.25.3
+
+# gRPC auto-instrumentation
+opentelemetry-instrumentation-grpc==0.48b0

@@ -71,6 +71,10 @@ class Config:
     db_pool_max: int = 5
     db_connect_timeout: int = 5
 
+    # Distance service settings
+    distance_service_endpoint: str = "localhost:50051"
+    distance_service_timeout: int = 30
+
     # Swagger settings
     swagger_host: str = ""
     swagger_schemes: tuple[str, ...] = ("http",)
@@ -165,6 +169,9 @@ class Config:
             db_pool_min=db_pool_min,
             db_pool_max=db_pool_max,
             db_connect_timeout=db_connect_timeout,
+            # Distance service
+            distance_service_endpoint=os.getenv("DISTANCE_SERVICE_ENDPOINT", "localhost:50051"),
+            distance_service_timeout=int(os.getenv("DISTANCE_SERVICE_TIMEOUT", "30")),
             # Swagger
             swagger_host=os.getenv("SWAGGER_HOST", ""),
             swagger_schemes=swagger_schemes,

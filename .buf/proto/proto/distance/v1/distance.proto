@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package distance.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/stuartshay/otel-worker/proto/distance/v1;distancev1";
+
+// DistanceService provides operations for calculating distance-from-home metrics
+// using OwnTracks GPS data from a PostgreSQL database.
+service DistanceService {
+  // CalculateDistanceFromHome initiates an async job to calculate distance metrics
+  // for a specific date from the fixed home location (40.736097°N, 74.039373°W).
+  // Returns a job ID for status polling and result retrieval.
+  rpc CalculateDistanceFromHome(CalculateDistanceRequest) returns (CalculateDistanceResponse);
+
+  // GetJobStatus returns the current status of a distance calculation job.
+  // Use this to poll for job completion and retrieve results.
+  rpc GetJobStatus(GetJobStatusRequest) returns (GetJobStatusResponse);
+
+  // ListJobs returns a list of distance calculation jobs with optional filtering.
+  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
+}
+
+// CalculateDistanceRequest initiates a distance calculation job for a specific date.
+message CalculateDistanceRequest {
+  // date is the target date for distance calculations in YYYY-MM-DD format
+  string date = 1;
+
+  // device_id optionally filters results to a specific OwnTracks device
+  // If empty, processes all devices for the date
+  string device_id = 2;
+}
+
+// CalculateDistanceResponse contains the job ID for async processing.
+message CalculateDistanceResponse {
+  // job_id uniquely identifies the calculation job
+  string job_id = 1;
+
+  // status indicates the initial job state (typically "queued" or "processing")
+  string status = 2;
+
+  // queued_at is the UTC timestamp when the job was created
+  google.protobuf.Timestamp queued_at = 3;
+}
+
+// GetJobStatusRequest queries the status of a distance calculation job.
+message GetJobStatusRequest {
+  // job_id is the unique identifier returned from CalculateDistanceFromHome
+  string job_id = 1;
+}
+
+// GetJobStatusResponse returns the current state of a job.
+message GetJobStatusResponse {
+  // job_id is the unique identifier for the job
+  string job_id = 1;
+
+  // status is one of: "queued", "processing", "completed", "failed"
+  string status = 2;
+
+  // queued_at is the UTC timestamp when the job was created
+  google.protobuf.Timestamp queued_at = 3;
+
+  // started_at is the UTC timestamp when processing began (null if not started)
+  google.protobuf.Timestamp started_at = 4;
+
+  // completed_at is the UTC timestamp when the job finished (null if not complete)
+  google.protobuf.Timestamp completed_at = 5;
+
+  // error_message contains the error details if status is "failed"
+  string error_message = 6;
+
+  // result contains the job output if status is "completed"
+  JobResult result = 7;
+}
+
+// ListJobsRequest filters jobs by status, date range, or device.
+message ListJobsRequest {
+  // status filters jobs by state ("queued", "processing", "completed", "failed")
+  // Empty string returns all jobs
+  string status = 1;
+
+  // limit is the maximum number of jobs to return (default: 50, max: 500)
+  int32 limit = 2;
+
+  // offset is the starting position for pagination (default: 0)
+  int32 offset = 3;
+
+  // date filters jobs to a specific calculation date (YYYY-MM-DD)
+  string date = 4;
+
+  // device_id filters jobs to a specific OwnTracks device
+  string device_id = 5;
+}
+
+// ListJobsResponse returns a list of jobs matching the filter criteria.
+message ListJobsResponse {
+  // jobs is the list of distance calculation jobs
+  repeated JobSummary jobs = 1;
+
+  // total_count is the total number of jobs matching the filter
+  int32 total_count = 2;
+
+  // limit is the maximum number of jobs returned in this response
+  int32 limit = 3;
+
+  // offset is the starting position used for this request
+  int32 offset = 4;
+}
+
+// JobSummary provides a summary view of a distance calculation job.
+message JobSummary {
+  // job_id uniquely identifies the calculation job
+  string job_id = 1;
+
+  // status is one of: "queued", "processing", "completed", "failed"
+  string status = 2;
+
+  // date is the target calculation date (YYYY-MM-DD)
+  string date = 3;
+
+  // device_id is the OwnTracks device (empty if all devices)
+  string device_id = 4;
+
+  // queued_at is the UTC timestamp when the job was created
+  google.protobuf.Timestamp queued_at = 5;
+
+  // completed_at is the UTC timestamp when the job finished (null if not complete)
+  google.protobuf.Timestamp completed_at = 6;
+}
+
+// JobResult contains the output of a completed distance calculation job.
+message JobResult {
+  // csv_path is the Kubernetes volume path to the generated CSV file
+  // Format: distance_YYYYMMDD.csv
+  string csv_path = 1;
+
+  // total_distance_km is the sum of all distance segments in kilometers
+  double total_distance_km = 2;
+
+  // total_locations is the number of GPS location records processed
+  int32 total_locations = 3;
+
+  // max_distance_km is the maximum distance from home recorded
+  double max_distance_km = 4;
+
+  // min_distance_km is the minimum distance from home recorded
+  double min_distance_km = 5;
+
+  // date is the calculation date (YYYY-MM-DD)
+  string date = 6;
+
+  // device_id is the OwnTracks device (empty if all devices)
+  string device_id = 7;
+
+  // processing_time_ms is the job execution duration in milliseconds
+  int64 processing_time_ms = 8;
+}

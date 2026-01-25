@@ -28,6 +28,7 @@ Documentation = "https://github.com/stuartshay/otel-demo/blob/main/docs/operatio
 target-version = "py310"
 line-length = 100
 indent-width = 4
+extend-exclude = ["app/proto"]
 
 [tool.ruff.lint]
 select = [
@@ -86,3 +87,4 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 ignore_missing_imports = true
+exclude = ["app/proto/"]
