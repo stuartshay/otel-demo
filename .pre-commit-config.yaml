@@ -15,6 +15,7 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
       - id: debug-statements
+        exclude: ^app/proto/
 
     # Markdown linting
   - repo: https://github.com/igorshubovych/markdownlint-cli

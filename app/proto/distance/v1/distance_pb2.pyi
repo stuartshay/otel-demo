@@ -1,11 +1,8 @@
-from collections.abc import Iterable as _Iterable
-from collections.abc import Mapping as _Mapping
-from typing import ClassVar as _ClassVar
-
-from google.protobuf import descriptor as _descriptor
-from google.protobuf import message as _message
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf import descriptor as _descriptor
+from google.protobuf import message as _message
+from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -15,7 +12,7 @@ class CalculateDistanceRequest(_message.Message):
     DEVICE_ID_FIELD_NUMBER: _ClassVar[int]
     date: str
     device_id: str
-    def __init__(self, date: str | None = ..., device_id: str | None = ...) -> None: ...
+    def __init__(self, date: _Optional[str] = ..., device_id: _Optional[str] = ...) -> None: ...
 
 class CalculateDistanceResponse(_message.Message):
     __slots__ = ("job_id", "status", "queued_at")
@@ -25,29 +22,16 @@ class CalculateDistanceResponse(_message.Message):
     job_id: str
     status: str
     queued_at: _timestamp_pb2.Timestamp
-    def __init__(
-        self,
-        job_id: str | None = ...,
-        status: str | None = ...,
-        queued_at: _timestamp_pb2.Timestamp | _Mapping | None = ...,
-    ) -> None: ...
+    def __init__(self, job_id: _Optional[str] = ..., status: _Optional[str] = ..., queued_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class GetJobStatusRequest(_message.Message):
     __slots__ = ("job_id",)
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
     job_id: str
-    def __init__(self, job_id: str | None = ...) -> None: ...
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
 
 class GetJobStatusResponse(_message.Message):
-    __slots__ = (
-        "job_id",
-        "status",
-        "queued_at",
-        "started_at",
-        "completed_at",
-        "error_message",
-        "result",
-    )
+    __slots__ = ("job_id", "status", "queued_at", "started_at", "completed_at", "error_message", "result")
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     QUEUED_AT_FIELD_NUMBER: _ClassVar[int]
@@ -62,16 +46,7 @@ class GetJobStatusResponse(_message.Message):
     completed_at: _timestamp_pb2.Timestamp
     error_message: str
     result: JobResult
-    def __init__(
-        self,
-        job_id: str | None = ...,
-        status: str | None = ...,
-        queued_at: _timestamp_pb2.Timestamp | _Mapping | None = ...,
-        started_at: _timestamp_pb2.Timestamp | _Mapping | None = ...,
-        completed_at: _timestamp_pb2.Timestamp | _Mapping | None = ...,
-        error_message: str | None = ...,
-        result: JobResult | _Mapping | None = ...,
-    ) -> None: ...
+    def __init__(self, job_id: _Optional[str] = ..., status: _Optional[str] = ..., queued_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., completed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., error_message: _Optional[str] = ..., result: _Optional[_Union[JobResult, _Mapping]] = ...) -> None: ...
 
 class ListJobsRequest(_message.Message):
     __slots__ = ("status", "limit", "offset", "date", "device_id")
@@ -85,14 +60,7 @@ class ListJobsRequest(_message.Message):
     offset: int
     date: str
     device_id: str
-    def __init__(
-        self,
-        status: str | None = ...,
-        limit: int | None = ...,
-        offset: int | None = ...,
-        date: str | None = ...,
-        device_id: str | None = ...,
-    ) -> None: ...
+    def __init__(self, status: _Optional[str] = ..., limit: _Optional[int] = ..., offset: _Optional[int] = ..., date: _Optional[str] = ..., device_id: _Optional[str] = ...) -> None: ...
 
 class ListJobsResponse(_message.Message):
     __slots__ = ("jobs", "total_count", "limit", "offset")
@@ -104,13 +72,7 @@ class ListJobsResponse(_message.Message):
     total_count: int
     limit: int
     offset: int
-    def __init__(
-        self,
-        jobs: _Iterable[JobSummary | _Mapping] | None = ...,
-        total_count: int | None = ...,
-        limit: int | None = ...,
-        offset: int | None = ...,
-    ) -> None: ...
+    def __init__(self, jobs: _Optional[_Iterable[_Union[JobSummary, _Mapping]]] = ..., total_count: _Optional[int] = ..., limit: _Optional[int] = ..., offset: _Optional[int] = ...) -> None: ...
 
 class JobSummary(_message.Message):
     __slots__ = ("job_id", "status", "date", "device_id", "queued_at", "completed_at")
@@ -126,27 +88,10 @@ class JobSummary(_message.Message):
     device_id: str
     queued_at: _timestamp_pb2.Timestamp
     completed_at: _timestamp_pb2.Timestamp
-    def __init__(
-        self,
-        job_id: str | None = ...,
-        status: str | None = ...,
-        date: str | None = ...,
-        device_id: str | None = ...,
-        queued_at: _timestamp_pb2.Timestamp | _Mapping | None = ...,
-        completed_at: _timestamp_pb2.Timestamp | _Mapping | None = ...,
-    ) -> None: ...
+    def __init__(self, job_id: _Optional[str] = ..., status: _Optional[str] = ..., date: _Optional[str] = ..., device_id: _Optional[str] = ..., queued_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., completed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class JobResult(_message.Message):
-    __slots__ = (
-        "csv_path",
-        "total_distance_km",
-        "total_locations",
-        "max_distance_km",
-        "min_distance_km",
-        "date",
-        "device_id",
-        "processing_time_ms",
-    )
+    __slots__ = ("csv_path", "total_distance_km", "total_locations", "max_distance_km", "min_distance_km", "date", "device_id", "processing_time_ms")
     CSV_PATH_FIELD_NUMBER: _ClassVar[int]
     TOTAL_DISTANCE_KM_FIELD_NUMBER: _ClassVar[int]
     TOTAL_LOCATIONS_FIELD_NUMBER: _ClassVar[int]
@@ -163,14 +108,4 @@ class JobResult(_message.Message):
     date: str
     device_id: str
     processing_time_ms: int
-    def __init__(
-        self,
-        csv_path: str | None = ...,
-        total_distance_km: float | None = ...,
-        total_locations: int | None = ...,
-        max_distance_km: float | None = ...,
-        min_distance_km: float | None = ...,
-        date: str | None = ...,
-        device_id: str | None = ...,
-        processing_time_ms: int | None = ...,
-    ) -> None: ...
+    def __init__(self, csv_path: _Optional[str] = ..., total_distance_km: _Optional[float] = ..., total_locations: _Optional[int] = ..., max_distance_km: _Optional[float] = ..., min_distance_km: _Optional[float] = ..., date: _Optional[str] = ..., device_id: _Optional[str] = ..., processing_time_ms: _Optional[int] = ...) -> None: ...

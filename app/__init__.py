@@ -62,6 +62,7 @@ def _register_blueprints(flask_app: Flask) -> None:
     """Register all application blueprints."""
     from app.blueprints.database import database_bp
     from app.blueprints.demo import demo_bp
+    from app.blueprints.distance import distance_bp
     from app.blueprints.files import files_bp
     from app.blueprints.health import health_bp
     from app.blueprints.observability import observability_bp
@@ -71,3 +72,4 @@ def _register_blueprints(flask_app: Flask) -> None:
     flask_app.register_blueprint(observability_bp)
     flask_app.register_blueprint(database_bp)
     flask_app.register_blueprint(files_bp)
+    flask_app.register_blueprint(distance_bp)
