@@ -58,6 +58,7 @@ repos:
           - types-Flask
           - types-requests
           - requests
+          - werkzeug
         args: [--ignore-missing-imports]
         exclude: ^app/proto/
 

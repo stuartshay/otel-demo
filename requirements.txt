@@ -42,3 +42,6 @@ requests==2.31.0
 
 # Type stubs for requests
 types-requests==2.31.0.20240218
+
+# Requests auto-instrumentation for trace propagation
+opentelemetry-instrumentation-requests==0.48b0

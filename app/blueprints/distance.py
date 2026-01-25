@@ -12,6 +12,8 @@ from datetime import datetime
 import requests
 from flask import Blueprint, Response, current_app, jsonify, request
 from opentelemetry import trace
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from werkzeug.utils import secure_filename
 
 from app.services.distance_client import (
     DistanceClient,
@@ -22,6 +24,9 @@ from app.services.distance_client import (
 
 distance_bp = Blueprint("distance", __name__, url_prefix="/api/distance")
 logger = logging.getLogger(__name__)
+
+# Initialize requests instrumentation for trace context propagation
+RequestsInstrumentor().instrument()
 
 
 def get_tracer() -> trace.Tracer:
@@ -629,16 +634,12 @@ def download_csv(filename: str):
         # Get otel-worker endpoint from config
         config = current_app.config.get("APP_CONFIG")
         if config and config.distance_service_endpoint:
-            # Extract host from gRPC endpoint (e.g., "otel-worker.otel-worker.svc.cluster.local:50051")
-            endpoint_parts = config.distance_service_endpoint.split(":")
-            if len(endpoint_parts) >= 1:  # noqa: PLR2004
-                worker_host = endpoint_parts[0]
-                # Use HTTP port 8080 instead of gRPC port 50051
-                worker_url = f"http://{worker_host}:8080/download/{filename}"
-            else:
-                worker_url = (
-                    f"http://otel-worker.otel-worker.svc.cluster.local:8080/download/{filename}"
-                )
+            # Extract host from gRPC endpoint using rpartition to handle colons properly
+            endpoint = config.distance_service_endpoint
+            host, sep, _ = endpoint.rpartition(":")
+            worker_host = host if sep else endpoint
+            # Use HTTP port 8080 instead of gRPC port 50051
+            worker_url = f"http://{worker_host}:8080/download/{filename}"
         else:
             worker_url = (
                 f"http://otel-worker.otel-worker.svc.cluster.local:8080/download/{filename}"
@@ -647,16 +648,34 @@ def download_csv(filename: str):
         span.set_attribute("distance.worker_url", worker_url)
         logger.info(f"Proxying CSV download to otel-worker: {filename}")
 
+        # Determine timeout for worker HTTP request
+        timeout_seconds = 30.0
+        if config and config.distance_service_timeout:
+            timeout_seconds = float(config.distance_service_timeout)
+        else:
+            env_timeout = os.getenv("DISTANCE_SERVICE_TIMEOUT")
+            if env_timeout:
+                try:
+                    timeout_seconds = float(env_timeout)
+                except ValueError:
+                    timeout_seconds = 30.0
+
+        span.set_attribute("distance.service_timeout", timeout_seconds)
+
+        response = None
         try:
             # Proxy request to otel-worker with streaming
-            response = requests.get(worker_url, timeout=30, stream=True)
+            # RequestsInstrumentor automatically propagates trace context
+            response = requests.get(worker_url, timeout=timeout_seconds, stream=True)
 
             if response.status_code == 404:  # noqa: PLR2004
                 logger.warning(f"CSV file not found on worker: {filename}")
+                response.close()
                 return error_response(f"File not found: {filename}", "NOT_FOUND", trace_id, 404)
 
             if response.status_code != 200:  # noqa: PLR2004
                 logger.error(f"Worker returned HTTP {response.status_code} for {filename}")
+                response.close()
                 return error_response(
                     f"Failed to download file from worker: HTTP {response.status_code}",
                     "DOWNLOAD_FAILED",
@@ -665,28 +684,48 @@ def download_csv(filename: str):
                 )
 
             # Stream the response from otel-worker to client
+            # Close connection when streaming completes or fails
             def generate():
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        yield chunk
+                try:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            yield chunk
+                finally:
+                    response.close()
 
+            # Sanitize filename to prevent header injection
+            safe_filename = secure_filename(filename)
             flask_response = Response(generate(), mimetype="text/csv")
-            flask_response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+            flask_response.headers["Content-Disposition"] = (
+                f'attachment; filename="{safe_filename}"'
+            )
 
             logger.info(f"Successfully proxied CSV download: {filename}")
             span.set_attribute("distance.proxy_status", "success")
             return flask_response
 
-        except requests.exceptions.Timeout:
+        except requests.exceptions.Timeout as e:
             logger.error(f"Timeout downloading CSV from worker: {filename}")
+            span.record_exception(e)
+            span.set_attribute("error", True)
+            if response:
+                response.close()
             return error_response("Download request timed out", "TIMEOUT", trace_id, 504)
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to download CSV from worker: {e}")
+            span.record_exception(e)
+            span.set_attribute("error", True)
+            if response:
+                response.close()
             return error_response(
                 f"Failed to download file: {e!s}", "DOWNLOAD_ERROR", trace_id, 500
             )
 
         except Exception as e:
             logger.error(f"Unexpected error proxying CSV download: {e}", exc_info=True)
+            span.record_exception(e)
+            span.set_attribute("error", True)
+            if response:
+                response.close()
             return error_response("An unexpected error occurred", "INTERNAL_ERROR", trace_id, 500)
