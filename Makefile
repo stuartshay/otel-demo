@@ -166,6 +166,44 @@ logs-view: ## View all server logs
 	fi
 
 # =============================================================================
+# Code Generation
+# =============================================================================
+
+proto: ## Generate gRPC Python stubs from Buf Registry
+	@echo "$(YELLOW)Generating gRPC stubs from buf.build/stuartshay-consulting/otel-worker:1.0.4...$(NC)"
+	@command -v buf >/dev/null 2>&1 || { echo "$(RED)✗ Buf CLI not found. Install: brew install bufbuild/buf/buf$(NC)"; exit 1; }
+	@mkdir -p .buf/proto app/proto
+	@echo "$(YELLOW)Downloading proto files from Buf Registry...$(NC)"
+	@buf export buf.build/stuartshay-consulting/otel-worker:1.0.4 -o .buf/proto
+	@echo "$(YELLOW)Generating Python stubs with grpc_tools.protoc...$(NC)"
+	@. $(VENV_DIR)/bin/activate && python -m grpc_tools.protoc \
+		-I.buf/proto \
+		--python_out=app \
+		--grpc_python_out=app \
+		--pyi_out=app \
+		.buf/proto/proto/distance/v1/distance.proto
+	@touch app/proto/__init__.py
+	@touch app/proto/distance/__init__.py
+	@touch app/proto/distance/v1/__init__.py
+	@echo "$(YELLOW)Fixing import paths in generated files...$(NC)"
+	@sed -i 's/from proto\.distance\.v1 import/from app.proto.distance.v1 import/g' app/proto/distance/v1/distance_pb2_grpc.py
+	@echo "$(GREEN)✓ Stubs generated in app/proto/distance/v1$(NC)"
+
+proto-check: ## Verify generated proto stubs exist
+	@echo "$(YELLOW)Checking for generated proto stubs...$(NC)"
+	@if [ -f app/proto/distance/v1/distance_pb2.py ] && [ -f app/proto/distance/v1/distance_pb2_grpc.py ]; then \
+		echo "$(GREEN)✓ Proto stubs exist$(NC)"; \
+	else \
+		echo "$(RED)✗ Proto stubs not found. Run 'make proto' first$(NC)"; \
+		exit 1; \
+	fi
+
+proto-clean: ## Remove generated proto files
+	@echo "$(YELLOW)Removing generated proto files...$(NC)"
+	@rm -rf app/proto
+	@echo "$(GREEN)✓ Proto files removed$(NC)"
+
+# =============================================================================
 # Code Quality
 # =============================================================================
 
