@@ -229,3 +229,30 @@ class TestDatabaseLocationsEndpoint:
         assert "order" in data
         assert "locations" in data
         assert "trace_id" in data
+
+    @patch("app.blueprints.database._get_or_init_db_service")
+    def test_db_locations_table_not_found_with_null_config(
+        self, mock_get_service: MagicMock, client: FlaskClient, app: MagicMock
+    ) -> None:
+        """Test that /db/locations returns 'unknown' database when APP_CONFIG is None.
+
+        This tests the defensive null handling where current_app.config.get("APP_CONFIG")
+        returns None, ensuring the fallback to "unknown" works correctly.
+        """
+        mock_service = MagicMock()
+        # Simulate PostgreSQL error for missing table
+        mock_service.get_locations.side_effect = Exception('relation "locations" does not exist')
+        mock_get_service.return_value = mock_service
+
+        # Set APP_CONFIG to None in the test app context
+        with app.app_context():
+            app.config["APP_CONFIG"] = None
+
+            response = client.get("/db/locations")
+
+            assert response.status_code == 404
+            data = response.get_json()
+            assert data["status"] == "error"
+            assert "locations" in data["error"]
+            assert data["database"] == "unknown"
+            assert "trace_id" in data

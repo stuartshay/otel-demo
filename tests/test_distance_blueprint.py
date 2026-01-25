@@ -21,10 +21,7 @@ from app.proto.distance.v1.distance_pb2 import (
     GetJobStatusResponse,
     ListJobsResponse,
 )
-from app.services.distance_client import (
-    ServiceUnavailableError,
-    ValidationError,
-)
+from app.services.distance_client import ServiceUnavailableError, ValidationError
 
 
 @pytest.fixture
@@ -589,3 +586,77 @@ class TestDownloadCSV:
             # Cleanup
             if dir_path.exists() and dir_path.is_dir():
                 dir_path.rmdir()
+
+
+# =============================================================================
+# APP_CONFIG = None Defensive Tests (PR #22 Copilot Suggestion)
+# =============================================================================
+
+
+class TestConfigFallbackHandling:
+    """Tests for defensive null handling when APP_CONFIG is None.
+
+    These tests ensure fallback behavior works correctly when
+    current_app.config.get("APP_CONFIG") returns None, addressing
+    GitHub Copilot PR review suggestion.
+    """
+
+    @patch("app.blueprints.distance.DistanceClient")
+    @patch("os.getenv")
+    def test_get_distance_client_with_null_config(
+        self, mock_getenv, mock_client_class, client, app
+    ):
+        """Test get_distance_client falls back to env vars when APP_CONFIG is None."""
+        # Mock environment variables
+        mock_getenv.side_effect = lambda key, default=None: {
+            "DISTANCE_SERVICE_ENDPOINT": "fallback-host:50051",
+            "DISTANCE_SERVICE_TIMEOUT": "60",
+        }.get(key, default)
+
+        # Mock APP_CONFIG to return None within application context
+        with app.app_context():
+            app.config["APP_CONFIG"] = None
+
+            # Call the endpoint to trigger get_distance_client
+            response = CalculateDistanceResponse()
+            response.job_id = "test-job"
+            response.status = "queued"
+            response.queued_at.GetCurrentTime()
+
+            mock_client_instance = MagicMock()
+            mock_client_instance.calculate_distance.return_value = response
+            mock_client_class.return_value = mock_client_instance
+
+            resp = client.post("/api/distance/calculate", json={"date": "2026-01-25"})
+
+            # Verify fallback was used
+            assert resp.status_code == 202
+            mock_client_class.assert_called_once_with("fallback-host:50051", 60)
+
+    @patch("os.getenv")
+    def test_download_csv_with_null_config_fallback(self, mock_getenv, client, app, tmp_path):
+        """Test CSV download uses env var fallback when APP_CONFIG is None."""
+        # Create test file in fallback location
+        csv_dir = tmp_path / "fallback_csv"
+        csv_dir.mkdir()
+        csv_file = csv_dir / "distance_20260125.csv"
+        csv_file.write_text("test,data\n")
+
+        # Mock environment variables
+        mock_getenv.side_effect = lambda key, default=None: {
+            "CSV_STORAGE_PATH": str(csv_dir),
+        }.get(key, default)
+
+        # Mock APP_CONFIG to return None in the actual request context
+        with app.app_context():
+            app.config["APP_CONFIG"] = None
+
+            resp = client.get("/api/distance/download/distance_20260125.csv")
+
+            # Should successfully download from fallback path
+            assert resp.status_code == 200
+            assert resp.mimetype == "text/csv"
+
+        # Cleanup
+        if csv_file.exists():
+            csv_file.unlink()
