@@ -56,6 +56,9 @@ repos:
       - id: mypy
         additional_dependencies:
           - types-Flask
+          - types-requests
+          - requests
+          - werkzeug
         args: [--ignore-missing-imports]
         exclude: ^app/proto/
 
