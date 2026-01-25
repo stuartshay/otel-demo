@@ -4,6 +4,8 @@ Quick reference for implementing REST API integration with otel-worker.
 
 ## Phase 1: gRPC Client Setup ✅ Ready
 
+**Using Buf Package**: We're using [buf.build/stuartshay-consulting/otel-worker:1.0.4](https://buf.build/stuartshay-consulting/otel-worker/docs/1.0.4) instead of copying proto files. This provides versioning, centralized definitions, and easier dependency management.
+
 ### 1.1 Dependencies
 
 ```bash
@@ -14,25 +16,65 @@ echo "protobuf==4.25.3" >> requirements.txt
 pip install -r requirements.txt
 ```
 
-### 1.2 Generate Python Stubs
+### 1.2 Generate Python Stubs (Using Buf)
+
+**Install Buf CLI**:
 
 ```bash
-# Add to Makefile
+# macOS
+brew install bufbuild/buf/buf
+
+# Linux
+curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.28.1/buf-$(uname -s)-$(uname -m)" \
+  -o /usr/local/bin/buf && chmod +x /usr/local/bin/buf
+
+# Verify
+buf --version
+```
+
+**Create buf.gen.yaml**:
+
+```bash
+cat > buf.gen.yaml << 'EOF'
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/python
+    out: app/proto
+    opt:
+      - paths=source_relative
+  - remote: buf.build/grpc/python
+    out: app/proto
+    opt:
+      - paths=source_relative
+  - remote: buf.build/protocolbuffers/pyi
+    out: app/proto
+    opt:
+      - paths=source_relative
+EOF
+```
+
+**Generate stubs from Buf Registry**:
+
+```bash
+# Generate from published package
+buf generate buf.build/stuartshay-consulting/otel-worker:1.0.4
+
+# Create Python package structure
+touch app/proto/__init__.py
+touch app/proto/distance/__init__.py
+touch app/proto/distance/v1/__init__.py
+```
+
+**Add to Makefile**:
+
+```bash
 cat >> Makefile << 'EOF'
 
 .PHONY: proto
-proto: ## Generate gRPC Python stubs from otel-worker
- @echo "Generating gRPC stubs..."
- @mkdir -p app/proto/distance/v1
- @touch app/proto/__init__.py
- @touch app/proto/distance/__init__.py
- @touch app/proto/distance/v1/__init__.py
- python -m grpc_tools.protoc \
-  -I../otel-worker/proto \
-  --python_out=app/proto \
-  --grpc_python_out=app/proto \
-  --pyi_out=app/proto \
-  ../otel-worker/proto/distance/v1/distance.proto
+proto: ## Generate gRPC Python stubs from Buf Registry
+ @echo "Generating stubs from buf.build/stuartshay-consulting/otel-worker:1.0.4..."
+ @buf generate buf.build/stuartshay-consulting/otel-worker:1.0.4
+ @touch app/proto/__init__.py app/proto/distance/__init__.py app/proto/distance/v1/__init__.py
  @echo "✓ Stubs generated in app/proto"
 EOF
 

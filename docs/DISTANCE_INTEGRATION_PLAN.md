@@ -35,9 +35,11 @@ otel-ui (React) → HTTPS → otel-demo (Flask) → gRPC → otel-worker (Go)
 - gRPC service available at `otel-worker.otel-worker.svc.cluster.local:50051`
 - OpenTelemetry tracing enabled in both services
 - otel-demo already has OTel instrumentation
+- **Proto definitions published to Buf Registry (v1.0.4)**
 
 ❌ **Required**:
 
+- Buf CLI installed (`brew install bufbuild/buf/buf` or download from releases)
 - Python gRPC client library
 - Cognito JWT validation middleware
 - Service-to-service network policy
@@ -60,14 +62,23 @@ protobuf==4.25.3
 
 **Action**: Run `pip install -r requirements.txt`
 
-#### 1.2 Generate Python gRPC Stubs
+#### 1.2 Generate Python gRPC Stubs (Using Buf)
 
-**Source**: `otel-worker/proto/distance/v1/distance.proto`
+**Source**: Buf Schema Registry - `buf.build/stuartshay-consulting/otel-worker:1.0.4`
+
+**Why Buf?**
+
+- ✅ No need to copy proto files between repos
+- ✅ Versioned proto packages (v1.0.4)
+- ✅ Centralized proto definitions
+- ✅ Better dependency management
+- ✅ Automatic stub generation
 
 **Directory Structure**:
 
 ```
 otel-demo/
+├── buf.gen.yaml              # Buf code generation config
 ├── app/
 │   └── proto/
 │       └── distance/
@@ -77,29 +88,62 @@ otel-demo/
 │               └── distance_pb2_grpc.py  # Generated
 ```
 
-**Command**:
+**Install Buf CLI**:
 
 ```bash
-python -m grpc_tools.protoc \
-  -I../otel-worker/proto \
-  --python_out=app/proto \
-  --grpc_python_out=app/proto \
-  --pyi_out=app/proto \
-  ../otel-worker/proto/distance/v1/distance.proto
+# macOS
+brew install bufbuild/buf/buf
+
+# Linux
+curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.28.1/buf-$(uname -s)-$(uname -m)" \
+  -o /usr/local/bin/buf
+chmod +x /usr/local/bin/buf
+
+# Verify
+buf --version
+```
+
+**Create buf.gen.yaml**:
+
+```yaml
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/python
+    out: app/proto
+    opt:
+      - paths=source_relative
+  - remote: buf.build/grpc/python
+    out: app/proto
+    opt:
+      - paths=source_relative
+  - remote: buf.build/protocolbuffers/pyi
+    out: app/proto
+    opt:
+      - paths=source_relative
+```
+
+**Generate Code**:
+
+```bash
+# Generate from published Buf package
+buf generate buf.build/stuartshay-consulting/otel-worker:1.0.4
+
+# Create __init__.py files for Python imports
+touch app/proto/__init__.py
+touch app/proto/distance/__init__.py
+touch app/proto/distance/v1/__init__.py
 ```
 
 **Makefile Target**:
 
 ```makefile
 .PHONY: proto
-proto: ## Generate gRPC Python stubs
- @echo "Generating gRPC stubs..."
- python -m grpc_tools.protoc \
-  -I../otel-worker/proto \
-  --python_out=app/proto \
-  --grpc_python_out=app/proto \
-  --pyi_out=app/proto \
-  ../otel-worker/proto/distance/v1/distance.proto
+proto: ## Generate gRPC Python stubs from Buf Registry
+ @echo "Generating gRPC stubs from buf.build/stuartshay-consulting/otel-worker:1.0.4..."
+ @buf generate buf.build/stuartshay-consulting/otel-worker:1.0.4
+ @touch app/proto/__init__.py
+ @touch app/proto/distance/__init__.py
+ @touch app/proto/distance/v1/__init__.py
  @echo "✓ Stubs generated in app/proto"
 ```
 
@@ -107,6 +151,13 @@ proto: ## Generate gRPC Python stubs
 
 ```python
 from app.proto.distance.v1 import distance_pb2, distance_pb2_grpc
+```
+
+**Version Pinning**: To upgrade to a new otel-worker proto version:
+
+```bash
+# Update to v1.0.5 (example)
+buf generate buf.build/stuartshay-consulting/otel-worker:1.0.5
 ```
 
 #### 1.3 Create gRPC Client Service
@@ -1013,7 +1064,8 @@ locust -f tests/load/test_distance_load.py --host=http://localhost:8080
 
 ## References
 
-- [otel-worker Proto Definitions](../otel-worker/proto/distance/v1/distance.proto)
+- **[Buf Package - otel-worker v1.0.4](https://buf.build/stuartshay-consulting/otel-worker/docs/1.0.4)** - Official proto definitions
+- [Buf Documentation](https://buf.build/docs/) - Buf Schema Registry guide
 - [gRPC Python Quick Start](https://grpc.io/docs/languages/python/quickstart/)
 - [PyJWT Documentation](https://pyjwt.readthedocs.io/)
 - [OpenTelemetry gRPC Instrumentation](https://opentelemetry-python.readthedocs.io/en/latest/instrumentation/grpc/grpc.html)
