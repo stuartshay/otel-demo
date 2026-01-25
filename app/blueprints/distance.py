@@ -8,9 +8,9 @@ from home location. Supports async job management with polling and CSV downloads
 import logging
 import os
 from datetime import datetime
-from pathlib import Path
 
-from flask import Blueprint, current_app, jsonify, request, send_file
+import requests
+from flask import Blueprint, Response, current_app, jsonify, request
 from opentelemetry import trace
 
 from app.services.distance_client import (
@@ -625,30 +625,68 @@ def download_csv(filename: str):
                 400,
             )
 
-        # Get CSV storage path from config or environment
+        # Proxy CSV download request to otel-worker
+        # Get otel-worker endpoint from config
         config = current_app.config.get("APP_CONFIG")
-        if config:
-            csv_dir = config.data_dir / "csv"
+        if config and config.distance_service_endpoint:
+            # Extract host from gRPC endpoint (e.g., "otel-worker.otel-worker.svc.cluster.local:50051")
+            endpoint_parts = config.distance_service_endpoint.split(":")
+            if len(endpoint_parts) >= 1:  # noqa: PLR2004
+                worker_host = endpoint_parts[0]
+                # Use HTTP port 8080 instead of gRPC port 50051
+                worker_url = f"http://{worker_host}:8080/download/{filename}"
+            else:
+                worker_url = (
+                    f"http://otel-worker.otel-worker.svc.cluster.local:8080/download/{filename}"
+                )
         else:
-            csv_dir = Path(os.getenv("CSV_STORAGE_PATH", "/data/csv"))
-        file_path = csv_dir / filename
+            worker_url = (
+                f"http://otel-worker.otel-worker.svc.cluster.local:8080/download/{filename}"
+            )
 
-        # Check if file exists
-        if not file_path.exists():
-            logger.warning(f"CSV file not found: {file_path}")
-            return error_response(f"File not found: {filename}", "NOT_FOUND", trace_id, 404)
+        span.set_attribute("distance.worker_url", worker_url)
+        logger.info(f"Proxying CSV download to otel-worker: {filename}")
 
-        # Check if it's actually a file (not a directory)
-        if not file_path.is_file():
-            logger.error(f"Path is not a file: {file_path}")
-            return error_response(f"Invalid file: {filename}", "NOT_FOUND", trace_id, 404)
+        try:
+            # Proxy request to otel-worker with streaming
+            response = requests.get(worker_url, timeout=30, stream=True)
 
-        logger.info(f"Serving CSV file: {filename}")
-        span.set_attribute("distance.file_size_bytes", file_path.stat().st_size)
+            if response.status_code == 404:  # noqa: PLR2004
+                logger.warning(f"CSV file not found on worker: {filename}")
+                return error_response(f"File not found: {filename}", "NOT_FOUND", trace_id, 404)
 
-        return send_file(
-            file_path,
-            mimetype="text/csv",
-            as_attachment=True,
-            download_name=filename,  # type: ignore[call-arg]
-        )
+            if response.status_code != 200:  # noqa: PLR2004
+                logger.error(f"Worker returned HTTP {response.status_code} for {filename}")
+                return error_response(
+                    f"Failed to download file from worker: HTTP {response.status_code}",
+                    "DOWNLOAD_FAILED",
+                    trace_id,
+                    response.status_code,
+                )
+
+            # Stream the response from otel-worker to client
+            def generate():
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        yield chunk
+
+            flask_response = Response(generate(), mimetype="text/csv")
+            flask_response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+            logger.info(f"Successfully proxied CSV download: {filename}")
+            span.set_attribute("distance.proxy_status", "success")
+            return flask_response
+
+        except requests.exceptions.Timeout:
+            logger.error(f"Timeout downloading CSV from worker: {filename}")
+            return error_response("Download request timed out", "TIMEOUT", trace_id, 504)
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to download CSV from worker: {e}")
+            return error_response(
+                f"Failed to download file: {e!s}", "DOWNLOAD_ERROR", trace_id, 500
+            )
+
+        except Exception as e:
+            logger.error(f"Unexpected error proxying CSV download: {e}", exc_info=True)
+            return error_response("An unexpected error occurred", "INTERNAL_ERROR", trace_id, 500)
