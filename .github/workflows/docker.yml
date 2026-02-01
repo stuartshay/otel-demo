@@ -56,12 +56,24 @@ jobs:
       - name: Determine version tag
         id: version
         run: |
-          BUILD_NUM=${{ github.run_number }}
           BRANCH="${{ steps.build_info.outputs.branch_sanitized }}"
 
+          # Validate VERSION file exists
+          if [[ ! -f VERSION ]]; then
+            echo "ERROR: VERSION file not found"
+            exit 1
+          fi
+
+          # Read and validate VERSION file
+          VERSION=$(cat VERSION)
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "ERROR: VERSION file must contain semantic version (e.g., 1.0.84)"
+            echo "Found: $VERSION"
+            exit 1
+          fi
+
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            # Main branch: 1.0.{build}
-            VERSION="1.0.${BUILD_NUM}"
+            # Main branch: use VERSION file
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "is_main=true" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
@@ -70,8 +82,8 @@ jobs:
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "is_main=false" >> $GITHUB_OUTPUT
           else
-            # Non-main branches: 1.0.{build}-{branch}
-            VERSION="1.0.${BUILD_NUM}-${BRANCH}"
+            # Non-main branches: version-{branch}
+            VERSION="${VERSION}-${BRANCH}"
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "is_main=false" >> $GITHUB_OUTPUT
           fi
