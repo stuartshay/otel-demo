@@ -34,8 +34,31 @@ buf --version
 
 **Create buf.gen.yaml**:
 
+**Note**: This repo uses `version: v1` with local plugins instead of `version: v2` with remote plugins. Both formats work, but v1 is simpler and avoids remote plugin dependencies.
+
 ```bash
 cat > buf.gen.yaml << 'EOF'
+version: v1
+plugins:
+  - plugin: python
+    out: app/proto
+    opt:
+      - paths=source_relative
+  - plugin: grpc_python
+    out: app/proto
+    opt:
+      - paths=source_relative
+  - plugin: pyi
+    out: app/proto
+    opt:
+      - paths=source_relative
+EOF
+```
+
+**Alternative v2 format** (not currently used, requires remote plugin download):
+
+```yaml
+# Alternative: version v2 with remote plugins
 version: v2
 plugins:
   - remote: buf.build/protocolbuffers/python
@@ -50,7 +73,6 @@ plugins:
     out: app/proto
     opt:
       - paths=source_relative
-EOF
 ```
 
 **Generate stubs from Buf Registry**:
