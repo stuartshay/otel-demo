@@ -1,50 +1,50 @@
 # Flask web framework
-flask==3.0.3
+flask==3.1.2
 
 # Flask CORS support
-flask-cors==5.0.0
+flask-cors==6.0.2
 
 # Swagger/OpenAPI documentation
 flasgger==0.9.7.1
 
 # Prometheus metrics exporter for Flask
-prometheus-flask-exporter==0.23.1
+prometheus-flask-exporter==0.23.2
 
 # OpenTelemetry core
-opentelemetry-api==1.27.0
-opentelemetry-sdk==1.27.0
+opentelemetry-api==1.39.1
+opentelemetry-sdk==1.39.1
 
 # OTLP exporter (gRPC)
-opentelemetry-exporter-otlp-proto-grpc==1.27.0
+opentelemetry-exporter-otlp-proto-grpc==1.39.1
 
 # Flask auto-instrumentation
-opentelemetry-instrumentation-flask==0.48b0
+opentelemetry-instrumentation-flask==0.60b1
 
 # PostgreSQL driver
-psycopg2-binary==2.9.10
+psycopg2-binary==2.9.11
 
 # PostgreSQL auto-instrumentation
-opentelemetry-instrumentation-psycopg2==0.48b0
+opentelemetry-instrumentation-psycopg2==0.60b1
 
 # Production WSGI server
-gunicorn==23.0.0
+gunicorn==25.0.0
 
 # Environment variable management
-python-dotenv==1.0.1
+python-dotenv==1.2.1
 
 # gRPC client for otel-worker integration
-grpcio==1.62.0
-grpcio-tools==1.62.0
-protobuf==4.25.3
+grpcio==1.76.0
+grpcio-tools==1.76.0
+protobuf==6.33.5
 
 # gRPC auto-instrumentation
-opentelemetry-instrumentation-grpc==0.48b0
+opentelemetry-instrumentation-grpc==0.60b1
 
 # HTTP client for proxy downloads
-requests==2.31.0
+requests==2.32.5
 
 # Type stubs for requests
-types-requests==2.31.0.20240218
+types-requests==2.32.4.20260107
 
 # Requests auto-instrumentation for trace propagation
-opentelemetry-instrumentation-requests==0.48b0
+opentelemetry-instrumentation-requests==0.60b1
