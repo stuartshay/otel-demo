@@ -1,14 +1,14 @@
-version: v1beta1
+version: v1
 plugins:
-  - name: python
+  - plugin: python
     out: app/proto
     opt:
       - paths=source_relative
-  - name: grpc_python
+  - plugin: grpc_python
     out: app/proto
     opt:
       - paths=source_relative
-  - name: pyi
+  - plugin: pyi
     out: app/proto
     opt:
       - paths=source_relative
