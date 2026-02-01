@@ -65,15 +65,16 @@ jobs:
           fi
 
           # Read and validate VERSION file
-          VERSION=$(cat VERSION)
-          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "ERROR: VERSION file must contain semantic version (e.g., 1.0.84)"
-            echo "Found: $VERSION"
+          BASE_VERSION=$(cat VERSION)
+          if ! echo "$BASE_VERSION" | grep -qE '^[0-9]+\.[0-9]+$'; then
+            echo "ERROR: VERSION file must contain major.minor version (e.g., 1.0)"
+            echo "Found: $BASE_VERSION"
             exit 1
           fi
 
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            # Main branch: use VERSION file
+            # Main branch: use VERSION file + build number
+            VERSION="${BASE_VERSION}.${{ github.run_number }}"
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "is_main=true" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
@@ -82,8 +83,8 @@ jobs:
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "is_main=false" >> $GITHUB_OUTPUT
           else
-            # Non-main branches: version-{branch}
-            VERSION="${VERSION}-${BRANCH}"
+            # Non-main branches: base_version.build_number-branch
+            VERSION="${BASE_VERSION}.${{ github.run_number }}-${BRANCH}"
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "is_main=false" >> $GITHUB_OUTPUT
           fi
