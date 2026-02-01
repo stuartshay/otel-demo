@@ -276,7 +276,7 @@ jobs:
 
       - name: Upload generated types
         if: steps.detect.outputs.changed == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: generated-types
           path: packages/otel-types/index.d.ts
