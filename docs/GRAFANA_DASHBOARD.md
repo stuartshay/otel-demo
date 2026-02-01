@@ -59,47 +59,72 @@ This dashboard visualizes Flask application metrics for otel-demo, including:
 **Query:** `sum by(status) (flask_http_request_total{job="otel-demo"})`
 **Description:** Pie chart showing the distribution of HTTP status codes (200, 404, 500, etc.).
 
+## Dashboard Location
+
+The otel-demo dashboard is managed centrally in the **homeassistant** repository:
+
+**Location:** `homeassistant/infrastructure/grafana/dashboards/otel-demo-flask-metrics.json`
+
+This allows unified dashboard management alongside other infrastructure dashboards (PostgreSQL, OAuth2 Proxy, Node Exporter, etc.).
+
 ## Installation
 
-### Option 1: Import via Grafana UI
+### Automated Deployment (Recommended)
+
+The dashboard is automatically deployed via the Grafana restore script:
+
+```bash
+# From homeassistant repository
+cd infrastructure/grafana
+bash scripts/restore-dashboards.sh
+```
+
+This script imports all dashboards from `dashboards/` into Grafana at <http://192.168.1.175:3001>.
+
+### Manual Import via Grafana UI
 
 1. Open Grafana at <http://192.168.1.175:3001>
 2. Navigate to **Dashboards** → **Import**
 3. Click **Upload JSON file**
-4. Select `grafana-dashboard.json` from this directory
+4. Select `otel-demo-flask-metrics.json` from homeassistant repo
 5. Click **Import**
 
-### Option 2: Import via API
+### Manual Import via API
 
 ```bash
-# Set your Grafana credentials
+# From homeassistant repository
 GRAFANA_URL="http://192.168.1.175:3001"
 GRAFANA_USER="admin"
-GRAFANA_PASSWORD="your-password"  # pragma: allowlist secret
+GRAFANA_PASS="${GRAFANA_PASSWORD:-admin}"
 
-# Import the dashboard
+# Create import payload
+PAYLOAD=$(jq '{dashboard: ., overwrite: true}' \
+  infrastructure/grafana/dashboards/otel-demo-flask-metrics.json)
+
+# Import dashboard
 curl -X POST \
   -H "Content-Type: application/json" \
-  -u "${GRAFANA_USER}:${GRAFANA_PASSWORD}" \
+  -u "${GRAFANA_USER}:${GRAFANA_PASS}" \
   "${GRAFANA_URL}/api/dashboards/db" \
-  -d @docs/grafana-dashboard.json
+  -d "${PAYLOAD}"
 ```
 
-### Option 3: Import via Kubernetes ConfigMap (if Grafana is in-cluster)
+## Updating the Dashboard
 
-If you migrate Grafana to the cluster, you can use a ConfigMap:
+To modify the dashboard:
 
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: otel-demo-dashboard
-  namespace: monitoring
-  labels:
-    grafana_dashboard: "1"
-data:
-  otel-demo.json: |
-    <contents of grafana-dashboard.json>
+1. Make changes in Grafana UI
+2. Export the updated dashboard as JSON
+3. Save to `homeassistant/infrastructure/grafana/dashboards/otel-demo-flask-metrics.json`
+4. Commit and push to version control
+
+```bash
+# Backup updated dashboard from Grafana
+cd homeassistant/infrastructure/grafana
+bash scripts/backup-dashboards.sh
+git add dashboards/otel-demo-flask-metrics.json
+git commit -m "Update otel-demo dashboard"
+git push
 ```
 
 ## Data Source Configuration
