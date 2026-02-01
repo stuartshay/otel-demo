@@ -1,0 +1,46 @@
+version: 2
+updates:
+  # Python package updates
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/New_York"
+    assignees:
+      - "stuartshay"
+    labels:
+      - "dependencies"
+      - "python"
+    groups:
+      opentelemetry:
+        patterns:
+          - "opentelemetry*"
+    # Allow major, minor, and patch updates
+    open-pull-requests-limit: 5
+
+  # Docker image updates
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/New_York"
+    assignees:
+      - "stuartshay"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  # GitHub Actions updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    assignees:
+      - "stuartshay"
+    labels:
+      - "dependencies"
+      - "github-actions"
