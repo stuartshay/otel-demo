@@ -301,7 +301,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download generated types
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: generated-types
           path: packages/otel-types
