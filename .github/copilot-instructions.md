@@ -32,12 +32,31 @@ distributed tracing. It demonstrates:
 
 ## Development Workflow
 
-1. Run `./setup.sh` to initialize environment
-2. Activate venv: `source venv/bin/activate`
-3. Run locally: `python app.py`
-4. Test endpoints: `curl http://localhost:8080/health`
-5. Run `pre-commit run -a` before commit
-6. Push to trigger CI/CD pipeline
+### Branch Strategy
+
+⚠️ **CRITICAL RULE**: NEVER commit directly to `main` branch. All changes MUST go through `develop` or `feature/*` branches.
+
+- **main**: Protected branch, production-only (PR required, direct commits FORBIDDEN)
+- **develop**: Primary development branch (work here by default)
+- **feature/\***: Feature branches (use for isolated features, PR to develop or main)
+
+### Daily Workflow
+
+1. **ALWAYS** start from `develop` or create a feature branch
+2. Run `./setup.sh` to initialize environment
+3. Activate venv: `source venv/bin/activate`
+4. Run locally: `python run.py`
+5. Test endpoints: `curl http://localhost:8080/health`
+6. Run `pre-commit run -a` before commit
+7. Commit and push to `develop` or `feature/*` branch
+8. Create PR from `develop` → `main` OR `feature/*` → `main` when ready to deploy
+9. Merge PR triggers CI/CD pipeline and deploys to k8s-pi5-cluster
+
+**Workflow Options:**
+
+- Small changes: Work directly on `develop`, then PR to `main`
+- Large features: Create `feature/name` branch, then PR to `main`
+- **NEVER**: `git push origin main` or commit directly to main
 
 ## Writing Code
 
@@ -63,6 +82,7 @@ distributed tracing. It demonstrates:
 
 ## Safety Rules (Do Not)
 
+- ⛔ **NEVER commit directly to main branch** - ALWAYS use develop or feature branches
 - Do not commit secrets or API keys
 - Do not use `latest` Docker tag in deployments
 - Do not skip `pre-commit run -a` before commits
