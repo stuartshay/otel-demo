@@ -139,6 +139,22 @@ Filter by:
 - `service.name = otel-demo`
 - `service.namespace = otel-demo`
 
+## Versioning
+
+This project uses semantic versioning with dynamic patch versions:
+
+- **VERSION file**: Stores major.minor version (e.g., `1.0`)
+- **Build number**: GitHub Actions run number becomes the patch version
+- **Result**: Version is calculated as `{major}.{minor}.{build_number}` (e.g., `1.0.104`)
+
+Example:
+
+- VERSION file contains: `1.0`
+- GitHub Actions build #104
+- Resulting version: `1.0.104`
+
+This ensures every build has a unique, incrementing version number.
+
 ## License
 
 MIT

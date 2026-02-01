@@ -173,6 +173,16 @@ jobs:
           short-description: "OpenTelemetry Demo App - Python Flask with OTel instrumentation"
           readme-filepath: ./README.md
 
+      - name: Trigger k8s-gitops update
+        if: github.ref == 'refs/heads/main'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITOPS_PAT }}
+          repository: stuartshay/k8s-gitops
+          event-type: otel-demo-release
+          client-payload: '{"version": "${{ steps.version.outputs.version }}"}'
+        continue-on-error: true
+
       - name: Summary
         run: |
           echo "## Docker Build Summary" >> $GITHUB_STEP_SUMMARY
