@@ -13,6 +13,13 @@ BRANCH="main"
 echo "🔒 Setting up branch protection for ${REPO}:${BRANCH}"
 echo ""
 
+# Check if gh CLI is installed
+if ! command -v gh >/dev/null 2>&1; then
+    echo "❌ GitHub CLI (gh) is not installed or not found in PATH."
+    echo "Install GitHub CLI from https://cli.github.com/ and ensure 'gh' is on your PATH."
+    exit 1
+fi
+
 # Check if gh CLI is authenticated
 if ! gh auth status &>/dev/null; then
     echo "❌ GitHub CLI is not authenticated"
@@ -37,7 +44,7 @@ gh api \
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["lint"]
+    "contexts": ["Pre-commit Checks", "Python Tests"]
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {

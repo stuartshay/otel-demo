@@ -30,7 +30,7 @@ def init_extensions(flask_app: Flask, config: Config) -> None:
         config: Application configuration.
     """
     # Initialize Prometheus metrics exporter
-    # This exposes /metrics endpoint in Prometheus format
+    # This exposes /metrics/prometheus endpoint in Prometheus format
     PrometheusMetrics(flask_app, path="/metrics/prometheus")
 
     # Configure CORS to allow frontend access

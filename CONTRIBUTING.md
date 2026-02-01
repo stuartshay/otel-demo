@@ -189,7 +189,7 @@ This project uses a VERSION file for semantic versioning:
 ./scripts/update-version.sh 1.0.85
 
 # Commit and push
-git add VERSION pyproject.toml .env.sample
+git add VERSION pyproject.toml
 git commit -m "chore: bump version to 1.0.85"
 git push origin develop
 
@@ -212,8 +212,11 @@ source venv/bin/activate
 ### OpenTelemetry Issues
 
 ```bash
-# Check OTel collector connectivity
-curl -v http://otel-collector.observability:4317
+# Check OTel collector TCP connectivity (OTLP/gRPC on port 4317)
+nc -vz otel-collector.observability 4317
+
+# Optional: gRPC-level check (requires grpcurl)
+# grpcurl -plaintext otel-collector.observability:4317 list
 
 # Verify trace export in logs
 tail -f logs/app.log | grep trace_id

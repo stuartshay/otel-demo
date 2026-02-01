@@ -38,7 +38,7 @@ distributed tracing. It demonstrates:
 
 - **main**: Protected branch, production-only (PR required, direct commits FORBIDDEN)
 - **develop**: Primary development branch (work here by default)
-- **feature/\***: Feature branches (use for isolated features, PR to develop or main)
+- **feature/\***: Feature branches (use for isolated features, PR to `main`)
 
 ### Daily Workflow
 
