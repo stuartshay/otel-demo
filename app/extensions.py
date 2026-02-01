@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from flasgger import Swagger
 from flask_cors import CORS
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from prometheus_flask_exporter import PrometheusMetrics
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -28,6 +29,10 @@ def init_extensions(flask_app: Flask, config: Config) -> None:
         flask_app: Flask application instance.
         config: Application configuration.
     """
+    # Initialize Prometheus metrics exporter
+    # This exposes /metrics endpoint in Prometheus format
+    PrometheusMetrics(flask_app, path="/metrics/prometheus")
+
     # Configure CORS to allow frontend access
     if config.cors_origins:
         CORS(

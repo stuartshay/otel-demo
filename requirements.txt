@@ -7,6 +7,9 @@ flask-cors==5.0.0
 # Swagger/OpenAPI documentation
 flasgger==0.9.7.1
 
+# Prometheus metrics exporter for Flask
+prometheus-flask-exporter==0.23.1
+
 # OpenTelemetry core
 opentelemetry-api==1.27.0
 opentelemetry-sdk==1.27.0
