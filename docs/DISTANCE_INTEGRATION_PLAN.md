@@ -36,6 +36,7 @@ otel-ui (React) → HTTPS → otel-demo (Flask) → gRPC → otel-worker (Go)
 - OpenTelemetry tracing enabled in both services
 - otel-demo already has OTel instrumentation
 - **Proto definitions published to Buf Registry (v1.0.4)**
+- **Database migrations repository**: [homelab-database-migrations](https://github.com/stuartshay/homelab-database-migrations)
 
 ❌ **Required**:
 
@@ -43,6 +44,45 @@ otel-ui (React) → HTTPS → otel-demo (Flask) → gRPC → otel-worker (Go)
 - Python gRPC client library
 - Cognito JWT validation middleware
 - Service-to-service network policy
+
+### Database Architecture
+
+**Migration Repository**: [homelab-database-migrations](https://github.com/stuartshay/homelab-database-migrations)
+
+The database schema is now managed via a centralized migration system supporting dual-source GPS tracking:
+
+#### Data Sources
+
+1. **OwnTracks** (Real-time GPS Tracking)
+   - Table: `public.locations`
+   - Existing implementation
+   - Real-time mobile location updates
+
+2. **Garmin Connect** (Activity Tracking - NEW)
+   - Tables:
+     - `public.garmin_activities` - Workout metadata
+     - `public.garmin_track_points` - GPS coordinates from activities
+   - Rich metrics: heart rate, cadence, speed, elevation
+   - Sample data: 50.6km cycling activity (10,707 GPS points)
+
+#### Unified Views
+
+- `unified_gps_points` - Combined OwnTracks + Garmin data
+- `daily_activity_summary` - Aggregated activity statistics
+
+#### Database Environments
+
+| Environment | Database | Host | Port | Purpose |
+|-------------|----------|------|------|---------|
+| **Production** | owntracks | 192.168.1.175 | 6432 (PgBouncer) | K8s cluster applications |
+| **Development** | owntracks_dev | 192.168.1.175 | 5432 | Local testing with rich data |
+
+**Schema Version**: Managed via golang-migrate in homelab-database-migrations repo
+
+**See Also**:
+
+- [Database Schema Reference](https://github.com/stuartshay/homelab-database-migrations/blob/main/docs/schema_reference.sql)
+- [Migration Guide](https://github.com/stuartshay/homelab-database-migrations/blob/main/docs/MIGRATION_GUIDE.md)
 
 ## Implementation Plan
 
